@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { TabNav } from "@/components/tab-nav";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LanguageToggle } from "@/components/language-toggle";
+import { AccountNav } from "@/components/account-nav";
 import { getLang } from "@/lib/lang";
 import { t } from "@/config/ui-strings";
 
@@ -36,23 +37,31 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
-          <header className="border-b border-border">
-            <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
-              <Link href="/india" className="font-serif text-xl font-semibold tracking-tight">
+          {/* Sticky so the scopes stay reachable during a long scroll; the blur
+              keeps the feed visible behind it rather than cutting it off. */}
+          <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur-md supports-[backdrop-filter]:bg-background/70">
+            <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between gap-4">
+              <Link
+                href="/india"
+                className="font-serif text-xl font-semibold tracking-tight hover:text-accent transition-colors"
+              >
                 {t("site.title", lang)}
               </Link>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <AccountNav lang={lang} />
                 <LanguageToggle lang={lang} />
                 <ThemeToggle />
               </div>
             </div>
-            <div className="max-w-5xl mx-auto px-4">
+            <div className="max-w-6xl mx-auto px-4 sm:px-6">
               <TabNav lang={lang} />
             </div>
           </header>
-          <main className="flex-1 max-w-5xl mx-auto w-full px-4 py-6">{children}</main>
-          <footer className="border-t border-border">
-            <div className="max-w-5xl mx-auto px-4 py-6 text-sm text-muted">
+
+          <main className="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 py-8">{children}</main>
+
+          <footer className="border-t border-border mt-12">
+            <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 text-sm text-muted">
               {t("site.tagline", lang)}
             </div>
           </footer>

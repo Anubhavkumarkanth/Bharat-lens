@@ -4,6 +4,8 @@ import { fetchText } from "./http";
 
 export interface ExtractedArticle {
   textContent: string;
+  /** Readability's cleaned markup. Sanitized at render time, never trusted as stored. */
+  html: string | null;
   byline: string | null;
 }
 
@@ -26,7 +28,7 @@ export async function extractArticleText(url: string): Promise<ExtractedArticle 
     const text = parsed.textContent.trim().replace(/\n{3,}/g, "\n\n");
     if (text.length < 200) return null; // too thin to ground a summary in
 
-    return { textContent: text, byline: parsed.byline ?? null };
+    return { textContent: text, html: parsed.content ?? null, byline: parsed.byline ?? null };
   } catch {
     return null;
   }

@@ -36,6 +36,33 @@ These are product rules, not preferences. Do not relax them.
    UI strings in `src/config/ui-strings.ts`. Never hardcode a source or category
    into application logic.
 
+## Accounts, engagement and the reader (Phase 2 / 2.5)
+
+9. **Auth is additive, exactly like AI.** With `NEXT_PUBLIC_SUPABASE_*` unset the app
+   still builds and serves every public scope signed-out, and the account controls
+   render nothing rather than dead links. Never put a Supabase call on the reading path
+   without an `isAuthConfigured()` check.
+10. **Authorization is app-level, not RLS.** The app connects through `DATABASE_URL` as
+    the owning role, which bypasses row-level security — enabling RLS would be theatre.
+    Every read and write of a per-user table filters on the session-verified user id.
+    `getUser()` (validates against Supabase), never `getSession()` (trusts the cookie).
+11. **Storing full article text is not permission to publish it.** `article_content`
+    holds the Readability extraction for every article; `fullTextOk` in
+    `src/config/sources.ts` decides per source whether the reader may render all of it,
+    and ships **false for every source**. Anything else shows a lead-in plus a
+    copyright hand-off. Reader pages are `noindex` with `rel=canonical` to the publisher.
+12. **Publisher HTML is never trusted.** `src/lib/sanitize.ts` is an allowlist — unknown
+    tag dropped, unknown attribute dropped, non-http(s) URL dropped. It renders through
+    `dangerouslySetInnerHTML` on our origin with the reader's session in cookies.
+13. **No foreign key to `auth.users`.** That's Supabase's schema and drizzle-kit only
+    manages `public`, so a reference would make migrations touch a schema they don't own.
+14. **`drizzle-kit push` crashes on this database** (0.31.10 bug introspecting an
+    existing CHECK constraint). Use `drizzle-kit generate` and apply the new statements
+    with guarded SQL — never let it try to reconcile the whole schema.
+15. **Clock reads live in `src/lib/clock.ts`.** `react-hooks/purity` fails the build on
+    `Date.now()` inside a component body, Server Components included. Read once per
+    request there and pass the value down.
+
 ## Architecture
 
 **Two orthogonal dimensions.** SCOPE (India / India Abroad / Impact on India /

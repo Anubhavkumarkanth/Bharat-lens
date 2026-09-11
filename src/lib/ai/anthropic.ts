@@ -16,12 +16,13 @@ export class AnthropicProvider implements AiProvider {
       const sourceText = input.sourceText.slice(0, MAX_SOURCE_CHARS);
       const res = await this.client.messages.create({
         model: MODEL,
-        max_tokens: 300,
+        max_tokens: 150,
         system:
           "You summarize news articles for a first-year college student with no domain background. " +
           "Rules: restate only what is in the provided article text, never add outside facts, no predictions, " +
           "no causation the article doesn't state, neutral register (report what the source reported, don't editorialize), " +
-          "explain jargon inline in plain language, 3-5 sentences.",
+          "explain jargon inline in plain language. Write EXACTLY two sentences — the first says what happened, " +
+          "the second says what it means or what follows. No preamble, no bullet points.",
         messages: [
           {
             role: "user",
@@ -72,4 +73,28 @@ export class AnthropicProvider implements AiProvider {
       return null;
     }
   }
+
+  async verifyEvents(headlines: string[]): Promise<string[] | null> {
+    if (headlines.length === 0) return [];
+    try {
+      const list = headlines.map((h, i) => `${i}. ${h}`).join("\n");
+      const res = await this.client.messages.create({
+        model: MODEL,
+        max_tokens: 500,
+        system:
+          "You are filtering a list of headlines that spiked in coverage on a given day. " +
+          "Keep only the ones that describe a real, newsworthy event. Drop recycled evergreen content, " +
+          "listicles, horoscopes, promotional copy, and anything that looks like automated or duplicated filler. " +
+          "Return ONLY a JSON array of the kept headline strings, verbatim, with no other text.",
+        messages: [{ role: "user", content: list }],
+      });
+      const block = res.content.find((b) => b.type === "text");
+      if (!block || block.type !== "text") return null;
+      const kept = JSON.parse(block.text.trim());
+      return Array.isArray(kept) ? (kept as string[]) : null;
+    } catch {
+      return null;
+    }
+  }
+
 }

@@ -2,36 +2,233 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/*
+ * Terracotta stays — it's the one thing that makes this look Indian rather than
+ * like every other news reader. Everything around it got quieter and softer so
+ * the accent does more work with less of it.
+ */
 :root {
-  --background: #faf9f6;
+  --background: #faf8f5;
   --surface: #ffffff;
-  --foreground: #1a1a18;
-  --muted: #6b6a65;
-  --border: #e4e2db;
-  --accent: #b3441e;
+  --surface-hover: #fdfbf8;
+  --foreground: #17161a;
+  --muted: #6a6873;
+  --border: #e8e4dd;
+  --border-strong: #d6d0c6;
+  --accent: #c14a1e;
+  --accent-hover: #a63d16;
+  --accent-soft: #fbeee7;
+  --ring: #c14a1e;
+  --shadow-card: 0 1px 2px rgb(23 22 26 / 0.04), 0 8px 24px -12px rgb(23 22 26 / 0.12);
+  --shadow-lift: 0 2px 4px rgb(23 22 26 / 0.05), 0 16px 40px -16px rgb(23 22 26 / 0.2);
 }
 
 .dark {
-  --background: #14130f;
-  --surface: #1c1b16;
-  --foreground: #eeece4;
-  --muted: #a3a094;
-  --border: #35332a;
-  --accent: #e08a5a;
+  --background: #100f13;
+  --surface: #1a191f;
+  --surface-hover: #211f28;
+  --foreground: #edeaf0;
+  --muted: #9d99a8;
+  --border: #2b2933;
+  --border-strong: #3d3a47;
+  --accent: #f08a5d;
+  --accent-hover: #f7a077;
+  --accent-soft: #2a1a14;
+  --ring: #f08a5d;
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px -12px rgb(0 0 0 / 0.5);
+  --shadow-lift: 0 2px 4px rgb(0 0 0 / 0.35), 0 16px 40px -16px rgb(0 0 0 / 0.65);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
   --color-foreground: var(--foreground);
   --color-muted: var(--muted);
   --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
   --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
   --font-serif: var(--font-source-serif);
   --font-sans: var(--font-geist-sans);
+  --shadow-card: var(--shadow-card);
+  --shadow-lift: var(--shadow-lift);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Headlines carry the credibility; tighten them so they read as set type. */
+.font-serif {
+  letter-spacing: -0.015em;
+}
+
+/* One visible focus treatment for every interactive element. The category and
+   scope chips hide their real checkbox for styling, so without this they are
+   entirely unreachable by keyboard. */
+:where(a, button, input, select, textarea, summary):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+:where(label):has(> input.sr-only:focus-visible) {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* Feed cards animate in on first paint, staggered by index. Purely additive —
+   the content is server-rendered and readable with animations off. */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-rise {
+  animation: rise-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+/* View Transitions: a directional slide between scopes and a crossfade for
+   filter changes. React names the elements; these rules time them. */
+::view-transition-old(root) {
+  animation: fade-out 0.18s ease-out both;
+}
+::view-transition-new(root) {
+  animation: fade-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes fade-out {
+  to {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* Everything above is decoration. Anyone who has asked their OS to stop moving
+   things gets none of it. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none !important;
+  }
+}
+
+/*
+ * Reader typography. The markup comes from the publisher via the sanitizer, so
+ * it can't carry classes — these are element rules scoped to .reader-body.
+ */
+.reader-body > * + * {
+  margin-top: 1.15em;
+}
+.reader-body p {
+  text-wrap: pretty;
+}
+.reader-body h2,
+.reader-body h3,
+.reader-body h4 {
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  margin-top: 1.8em;
+}
+.reader-body h2 {
+  font-size: 1.35em;
+}
+.reader-body h3 {
+  font-size: 1.15em;
+}
+.reader-body a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.reader-body blockquote {
+  border-left: 3px solid var(--accent);
+  padding-left: 1.15em;
+  color: var(--muted);
+  font-style: italic;
+}
+.reader-body ul,
+.reader-body ol {
+  padding-left: 1.4em;
+}
+.reader-body ul {
+  list-style: disc;
+}
+.reader-body ol {
+  list-style: decimal;
+}
+.reader-body li + li {
+  margin-top: 0.4em;
+}
+.reader-body img {
+  border-radius: 12px;
+  margin-inline: auto;
+}
+.reader-body figcaption {
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  color: var(--muted);
+  text-align: center;
+  margin-top: 0.6em;
+}
+.reader-body pre {
+  overflow-x: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1em;
+  font-size: 0.875em;
+}
+.reader-body table {
+  display: block;
+  overflow-x: auto;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9em;
+}
+.reader-body th,
+.reader-body td {
+  border: 1px solid var(--border);
+  padding: 0.5em 0.75em;
+  text-align: left;
+}
+
+/* Horizontal strips (scopes, category chips, the month timeline) scroll on
+   touch without a scrollbar cutting into the layout. */
+.scrollbar-none {
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
 }

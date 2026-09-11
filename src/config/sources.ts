@@ -24,6 +24,20 @@ export interface SourceConfig {
   feedUrl?: string;
   /** Higher = trusted more in deterministic ranking and dedup tie-breaks. */
   priority: number;
+  /**
+   * Whether the in-app reader may render this source's FULL article text.
+   *
+   * Deliberately false (omitted) for every source shipped here. Full text is
+   * stored for all of them — extraction already runs to ground summaries — but
+   * storing is not publishing. None of these outlets grants republication
+   * rights: wires (PTI, ANI, Reuters, AP, AFP, Bloomberg) enforce hardest, and
+   * the papers and broadcasters all prohibit it in their terms too.
+   *
+   * Set this to true only for a source you have written permission or a licence
+   * for, or your own publication. Everything left false renders a lead-in plus
+   * the summary, then hands the reader to the publisher — see /article/[id].
+   */
+  fullTextOk?: boolean;
 }
 
 export const SOURCES: SourceConfig[] = [

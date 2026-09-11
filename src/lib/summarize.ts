@@ -1,5 +1,5 @@
 import { db } from "@/lib/db/client";
-import { articleSummaries } from "@/lib/db/schema";
+import { articleContent, articleSummaries } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { extractArticleText } from "@/lib/ingestion/extract";
 import { getAiProvider } from "@/lib/ai/provider";
@@ -25,6 +25,24 @@ export async function summarizeArticle(
   if (existing?.grounded) return; // already summarized — never re-summarize
 
   const extracted = await extractArticleText(canonicalUrl);
+
+  // Persist the extraction the summary is grounded in, so the in-app reader
+  // doesn't re-fetch the publisher on every view (rule 6: readers read the DB).
+  // Whether any of it is rendered is decided per source by `fullTextOk`.
+  if (extracted) {
+    const content = {
+      articleId,
+      html: extracted.html,
+      textContent: extracted.textContent,
+      wordCount: extracted.textContent.split(/\s+/).length,
+      extractedAt: new Date(),
+    };
+    await db
+      .insert(articleContent)
+      .values(content)
+      .onConflictDoUpdate({ target: articleContent.articleId, set: content });
+  }
+
   const ai = extracted ? getAiProvider() : null;
   const summaryEn = ai && extracted ? await ai.summarize({ title, sourceText: extracted.textContent, sourceName }) : null;
 

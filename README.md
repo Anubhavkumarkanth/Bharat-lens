@@ -138,10 +138,15 @@ taxonomy requires re-running it over stored rows.
 
 - **Phase 1 (done)** — scopes, categories, discovery cascade, deterministic ranking,
   grounded summaries with caching, sort/time filters, EN/HI toggle, Active/History.
-- **Phase 2** — Supabase Auth, For You feed, Reminders with notes and folders,
-  per-user archive, persisted preferences.
+- **Phase 2 (done)** — Supabase Auth (email + password), For You feed, saved articles
+  with collections, notes and due dates, per-user archive, persisted preferences.
+- **Phase 2.5 (done)** — in-app reader with a per-source full-text allowlist, five-way
+  engagement (like / interested / not interested / save / repost), public profiles with
+  Instagram and X links, month timeline with auto-detected news spikes, Gemini as a
+  zero-cost default AI provider, everyday-Hindi copy pass, and a wider two-column layout
+  with View Transitions.
 - **Phase 3** — AI rerank, 24h recommendation refresh, cross-source comparison view,
-  special-date detection, News vs Opinion classification surfaced as a filter.
+  News vs Opinion classification surfaced as a filter, search, OG images per article.
 
 ## Known limitations
 

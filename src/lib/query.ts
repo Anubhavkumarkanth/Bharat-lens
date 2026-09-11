@@ -1,6 +1,6 @@
 import { db } from "@/lib/db/client";
 import { articles, articleSummaries, sources } from "@/lib/db/schema";
-import { and, desc, eq, gte, asc } from "drizzle-orm";
+import { and, desc, eq, gte, lt, asc, inArray, notInArray } from "drizzle-orm";
 import type { Category, Scope } from "@/config/taxonomy";
 import { scoreArticle, selectDailyQueue, type RankableArticle } from "@/lib/ranking/deterministic";
 
@@ -8,11 +8,18 @@ export type SortOption = "newest" | "trending" | "popular" | "oldest";
 export type RangeOption = "live" | "1d" | "week" | "month" | "past-month" | "year";
 
 export interface QueryArticlesParams {
-  scope: Scope;
-  category?: Category;
+  /** One scope, or several — the For You feed draws from every scope the reader picked. */
+  scope: Scope | Scope[];
+  /** One category, or several. Omitted or empty means no category filter. */
+  category?: Category | Category[];
   sort?: SortOption;
   range?: RangeOption;
   limit?: number;
+  /** Stories the reader marked "not interested". Excluded before selection, so
+   *  a rejected story doesn't take up one of the day's slots. */
+  excludeArticleIds?: string[];
+  /** YYYY-MM-DD from the month timeline. Overrides `range` when set. */
+  day?: string;
 }
 
 export interface ReportingOutlet {
@@ -63,10 +70,37 @@ function rangeStart(range: RangeOption): Date {
 const DEFAULT_DAILY_TARGET = 30;
 
 export async function queryArticles(params: QueryArticlesParams): Promise<StoryCard[]> {
-  const { scope, category, sort = "newest", range = "1d", limit = DEFAULT_DAILY_TARGET } = params;
+  const {
+    scope,
+    category,
+    sort = "newest",
+    range = "1d",
+    limit = DEFAULT_DAILY_TARGET,
+    excludeArticleIds = [],
+    day,
+  } = params;
 
-  const conditions = [eq(articles.scope, scope), gte(articles.discoveredAt, rangeStart(range))];
-  if (category) conditions.push(eq(articles.category, category));
+  const scopes = Array.isArray(scope) ? scope : [scope];
+  const categories = category === undefined ? [] : Array.isArray(category) ? category : [category];
+
+  // An empty scope list would match every row rather than none, so bail early.
+  if (scopes.length === 0) return [];
+
+  // A day pinned on the timeline replaces the rolling range entirely — the
+  // reader asked for that date, not "the last 24 hours ending on it".
+  const dayStart = day ? new Date(`${day}T00:00:00.000Z`) : null;
+  const validDay = dayStart && !Number.isNaN(dayStart.getTime()) ? dayStart : null;
+  const dayEnd = validDay ? new Date(validDay.getTime() + 24 * 60 * 60 * 1000) : null;
+
+  const conditions = [
+    inArray(articles.scope, scopes),
+    validDay
+      ? gte(articles.discoveredAt, validDay)
+      : gte(articles.discoveredAt, rangeStart(range)),
+  ];
+  if (validDay && dayEnd) conditions.push(lt(articles.discoveredAt, dayEnd));
+  if (categories.length > 0) conditions.push(inArray(articles.category, categories));
+  if (excludeArticleIds.length > 0) conditions.push(notInArray(articles.id, excludeArticleIds));
 
   const rows = await db
     .select({
