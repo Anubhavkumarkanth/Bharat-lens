@@ -108,6 +108,8 @@ npm run db:push          # apply schema to Postgres
 npm run ingest           # run the ingestion pipeline locally
 npx tsx --env-file=.env.local src/scripts/stats.ts        # corpus stats
 npx tsx --env-file=.env.local src/scripts/reclassify.ts   # re-run classification over stored rows
+npx tsx --env-file=.env.local src/scripts/decode-entities.ts # decode HTML entities in stored titles
+npx tsx --env-file=.env.local src/scripts/resummarize.ts  # re-summarize stored rows after a prompt change
 npx tsx src/scripts/test-classify.ts                       # classifier assertions
 npx tsx --env-file=.env.local src/scripts/debug-source.ts <source-id>  # diagnose one source
 ```
