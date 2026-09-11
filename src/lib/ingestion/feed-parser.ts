@@ -1,4 +1,5 @@
 import { XMLParser } from "fast-xml-parser";
+import { decodeEntities } from "./entities";
 
 export interface FeedItem {
   title: string;
@@ -17,9 +18,9 @@ function asArray<T>(value: T | T[] | undefined): T[] {
 
 function textOf(value: unknown): string | null {
   if (value == null) return null;
-  if (typeof value === "string") return value.trim() || null;
+  if (typeof value === "string") return decodeEntities(value).trim() || null;
   if (typeof value === "object" && "#text" in (value as Record<string, unknown>)) {
-    return String((value as Record<string, unknown>)["#text"]).trim() || null;
+    return decodeEntities(String((value as Record<string, unknown>)["#text"])).trim() || null;
   }
   return null;
 }

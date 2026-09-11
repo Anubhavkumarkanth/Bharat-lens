@@ -1,5 +1,6 @@
 import { XMLParser } from "fast-xml-parser";
 import { fetchText } from "./http";
+import { decodeEntities } from "./entities";
 
 export interface SitemapUrlEntry {
   loc: string;
@@ -16,7 +17,7 @@ function asArray<T>(value: T | T[] | undefined): T[] {
 
 function textOf(value: unknown): string | null {
   if (value == null) return null;
-  if (typeof value === "string") return value.trim() || null;
+  if (typeof value === "string") return decodeEntities(value).trim() || null;
   return null;
 }
 

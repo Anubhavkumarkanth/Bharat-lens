@@ -10,6 +10,7 @@ import { canonicalizeUrl } from "./canonical";
 import { classifyCategory, classifyContentType, classifyScope } from "@/lib/scope-category/classify";
 import { titleTokens, jaccardSimilarity, SAME_STORY_THRESHOLD } from "@/lib/ranking/similarity";
 import { summarizeArticle } from "@/lib/summarize";
+import { decodeEntities } from "./entities";
 
 const MAX_SUMMARIZE_PER_SOURCE_RUN = 8; // bounds cron execution time / AI spend per run
 const MAX_TITLE_FETCHES_PER_RUN = 40; // sitemaps without <news:title> cost one fetch per article
@@ -18,7 +19,7 @@ async function fetchPageTitle(url: string): Promise<string | null> {
   const html = await fetchText(url, 10000);
   if (!html) return null;
   const match = /<title[^>]*>([^<]*)<\/title>/i.exec(html.slice(0, 20000));
-  return match ? match[1].trim() : null;
+  return match ? decodeEntities(match[1]).trim() || null : null;
 }
 
 async function itemsFromSource(
