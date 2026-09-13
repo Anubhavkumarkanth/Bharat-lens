@@ -9,7 +9,7 @@ import { DEFAULT_PREFERENCES, SOURCE_SCOPES, getPreferences } from "@/lib/prefer
 import { getSavedArticleIds } from "@/lib/saved";
 import { getInterestProfile, getReactionsFor, NO_REACTION } from "@/lib/reactions";
 import { getMonthTimeline } from "@/lib/timeline";
-import { currentMonthStartUtc, requestNow } from "@/lib/clock";
+import { currentMonthStartUtc, requestNow, todayUtcDate } from "@/lib/clock";
 import { FilterBar } from "@/components/filter-bar";
 import { MonthTimeline } from "@/components/month-timeline";
 import { ArticleCard } from "@/components/article-card";
@@ -105,7 +105,7 @@ export default async function ScopePage(props: PageProps<"/[scope]">) {
 
   return (
     <div>
-      <MonthTimeline days={timeline} lang={lang} activeDay={day} />
+      <MonthTimeline days={timeline} lang={lang} today={todayUtcDate()} activeDay={day} />
       <FilterBar lang={lang} sort={sort} range={range} />
       {stories.length === 0 ? (
         <p className="text-center py-24 text-muted">{t("state.empty", lang)}</p>

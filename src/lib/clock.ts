@@ -17,3 +17,8 @@ export function currentMonthStartUtc(): Date {
   const now = new Date();
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
 }
+
+/** Today as YYYY-MM-DD in UTC — the format the timeline files days under. */
+export function todayUtcDate(): string {
+  return new Date().toISOString().slice(0, 10);
+}
