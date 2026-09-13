@@ -1,161 +1,151 @@
 # Bharat Lens
 
-**India-first news intelligence dashboard.** One place to read India, India abroad,
-what's hitting India from outside, and the wider world — from wire services and
-newspapers only, deduplicated across outlets, with grounded plain-language summaries.
+An India-first news reader. One place to see what is happening in India, what Indians
+abroad are dealing with, what is hitting India from outside, and the wider world —
+pulled from wire services and newspapers, deduplicated across outlets, in English or
+Hindi.
 
-> Live demo: _pending deploy_ · Dark mode by default, English/हिंदी toggle, mobile-first.
+No sign-up. No account. Nothing personal stored.
 
----
+> **Status:** running locally, not yet deployed.
+
+## Screenshots
+
+_Add these to `docs/screenshots/` and they will appear here — see the note in that
+folder for what to capture._
+
+## Why I built it
+
+I read a lot of news and I was doing it badly — six tabs open, the same PTI story
+under four different headlines, and no way to tell whether something mattered to India
+or just happened to be in an Indian newspaper.
+
+So I wanted three specific things:
+
+1. **One story, one card.** If six papers carry the same wire copy, show it once and
+   tell me who else ran it.
+2. **A distinction between "in India" and "about India."** An Indian paper's world
+   desk is world news. A Reuters story about tariffs on Indian steel is India news.
+   Those are different questions and no reader I tried made the distinction.
+3. **Something I could actually read.** Two sentences of plain summary, no autoplay
+   video, no ten-item listicle about a cricketer's haircut.
 
 ## What it does
 
-**Two dimensions that combine freely.** Four scopes — India, India Abroad, Impact on
-India, World — each carrying all ten categories (Finance, Politics, Sports,
-Technology, Business & Economy, Environment, Education, Entertainment, Health, Gen-Z).
-Every combination is valid: Finance-in-World, Sports-in-Impact-on-India, all of it.
+- **Five scopes × ten categories**, freely combinable — Finance-in-World and
+  Sports-in-Impact-on-India are both real views
+- **17 sources**: PTI, ANI, Reuters, AP, AFP, The Hindu, Indian Express, Livemint,
+  Business Standard, Economic Times, Hindustan Times, Scroll, The Print, BBC,
+  The Guardian, Bloomberg, Al Jazeera. Print and wire only, no television news
+- **One card per story**, listing every outlet that ran it
+- **Two-sentence summaries** grounded strictly in the fetched article text
+- **English and Hindi**, with translations cached so each one is paid for once
+- **A clean in-app reader**, or straight to the publisher — your choice per story
+- **Like, interested, not interested, save** — with collections, notes and a
+  come-back-to-it date
+- **A For You feed** built from the categories you pick and the stories you react to
+- **A month timeline** marking days when something actually happened
 
-**Sources:** 17 wire services and print/digital newspapers — PTI, ANI, Reuters, AP,
-AFP, The Hindu, Indian Express, Livemint, Business Standard, Economic Times,
-Hindustan Times, Scroll, The Print, BBC, The Guardian, Bloomberg, Al Jazeera.
-No television news: print and wire journalism carries bylines, editorial desks, and
-published correction policies, and that standard is applied uniformly regardless of
-an outlet's political leaning.
+Personal features are keyed to an anonymous cookie, not an account. The tradeoff is
+that your saves live in one browser; in exchange there is no sign-up form and no
+password to forget.
 
----
+## Running it
 
-## The interesting engineering
+```bash
+git clone https://github.com/Anubhavkumarkanth/Bharat-lens.git
+cd Bharat-lens
+npm install
+cp .env.example .env.local     # add a DATABASE_URL
+npm run db:push                # create the tables
+npm run ingest                 # first run records a quiet baseline
+npm run dev
+```
 
-### Feed discovery is a cascade, because RSS is dying
+Only `DATABASE_URL` is required — any Postgres works; I use Supabase's free tier.
 
-Roughly a third of these publishers expose no usable RSS at all. The pipeline tries,
-in order: an explicit feed URL → feed links declared in the page `<head>` → common
-RSS paths (`/feed`, `/rss`, …) → sitemaps discovered via `robots.txt`, including
-recursive sitemap indexes. Every step validates it actually received XML before
-accepting the result, and a blocked or wrong-content step falls through instead of
-failing the source.
+Everything else is optional. With no AI key you get headline-and-source cards instead
+of summaries, and nothing else changes. If you want summaries, Google AI Studio has a
+free tier — put the key in `GEMINI_API_KEY`.
 
-This isn't theoretical. Measured against the live web:
+### Useful scripts
 
-| Discovery path | Sources |
-| --- | --- |
-| Explicit/declared RSS | AFP, The Hindu, Indian Express, Livemint, Business Standard, Economic Times, Hindustan Times, BBC, The Guardian, Bloomberg, Al Jazeera |
-| RSS at a non-obvious URL | Scroll (feed lives on Feedburner, not `scroll.in/feed`) |
-| Sitemap fallback only | PTI, ANI, Reuters, AP, The Print |
+```bash
+npm run ingest                                                # run the pipeline
+npx tsx --env-file=.env.local src/scripts/stats.ts            # corpus stats
+npx tsx --env-file=.env.local src/scripts/reclassify.ts       # re-classify stored rows
+npx tsx --env-file=.env.local src/scripts/decode-entities.ts  # fix HTML entities in titles
+npx tsx src/scripts/test-classify.ts                          # classifier assertions
+npx tsx --env-file=.env.local src/scripts/debug-source.ts reuters ap
+```
 
-An RSS-only implementation would silently lose five of the seventeen sources —
-including Reuters and AP.
-
-### Deterministic first, AI second — and it runs with zero AI keys
-
-Ranking, scope/category classification, dedup, clustering, and every filter are
-pure deterministic logic. If an AI provider key is configured, it adds summaries,
-Hindi translation, and optional reranking on top; if any AI call fails, it falls
-back silently. Nothing in the reading experience blocks on a model call.
-
-Classification is ordered by signal strength: the publisher's own URL section path
-(`/world/`, `/sports/`, `/opinion/`) beats headline keyword matching, which beats a
-general bucket. Two bugs worth naming, because both are easy to ship by accident:
-
-- Keyword matching must be **word-boundary** based. Plain `includes("ai")` matches
-  "said", "again", "chair" — it inflated the Technology category by 14×. Likewise
-  `includes("india")` happily matches "Indiana".
-- An Indian outlet's `/world/` story is **world news**, not India news. Without a
-  foreign-desk check, 230 international stories sat in the India tab.
-
-### Summaries are grounded or absent — never invented
-
-Before any model call, the canonical page is fetched and parsed with Readability.
-Only that extracted text is passed to the model, and the summary may only restate
-what's in it — no outside facts, no predictions, no causation the article didn't
-assert. If the text can't be retrieved or is too thin, the card shows headline and
-source link only. A card never gets filled in with a guess.
-
-Summaries are cached by canonical-URL identity and never regenerated; Hindi
-translations are cached alongside the English summary and produced lazily on first
-request. Translate once, serve many.
-
-### Dedup happens twice, for two different problems
-
-Canonical-URL identity (with tracking parameters stripped) stops the same URL being
-ingested twice. Separately, title-token Jaccard similarity within a 48-hour window
-groups the *same story across different outlets* into one card that lists every
-outlet reporting it — so a story carried by six papers is one card, not six.
-
-### Ranking selects, then orders
-
-Two distinct steps. First the day's queue is *selected* from the broad candidate
-pool with a source-diversity cap, so one prolific outlet can't wall off a scope
-(before this, `/world` was 29 cards from a single publisher). Then that queue is
-*ordered* by whatever sort the reader chose.
-
----
+`reclassify` matters more than it sounds: articles are classified once when they are
+ingested, so changing the taxonomy does nothing to rows already in the database until
+you re-run it.
 
 ## Stack
 
 | Layer | Choice |
 | --- | --- |
 | Framework | Next.js 16 (App Router), TypeScript, Tailwind v4 |
-| Database | Supabase Postgres via Drizzle ORM |
-| Ingestion | Vercel Cron → `/api/cron/ingest`, writes to Postgres |
-| AI | Provider-swappable behind one interface (Anthropic by default); entirely optional |
+| Database | Postgres via Drizzle ORM |
+| Ingestion | Scheduled route at `/api/cron/ingest`, writes to Postgres |
+| AI | Optional, provider-swappable behind one interface (Gemini or Anthropic) |
 | Hosting | Vercel |
 
-Readers always read from the database. Page loads never trigger scraping.
+## What I learned building this
 
----
+The part I expected to be easy was reading RSS feeds. It turned out **five of my
+seventeen sources publish no usable RSS at all** — including Reuters and AP — so feed
+discovery became a four-step cascade ending in recursive sitemap parsing. That one
+finding reshaped the whole ingestion design.
 
-## Local setup
+The part I expected to be hard was deduplication, and it was, but not for the reason I
+thought. The same URL appearing twice is trivial. The same *story* from six different
+papers is a similarity problem, and it needs a different mechanism entirely.
 
-```bash
-git clone <repo-url> && cd Bharat-lens
-npm install
-cp .env.local.example .env.local   # add your DATABASE_URL
-npm run db:push                    # create tables
-npm run ingest                     # first run records a quiet baseline
-npm run dev
-```
+I also learned to be suspicious of substring matching. Checking whether a headline
+contains `"ai"` matches "said", "again" and "chair" — it inflated my Technology
+category by about 14x before I noticed. Word boundaries matter.
 
-Only `DATABASE_URL` is required. Without `ANTHROPIC_API_KEY` the app runs fully —
-you just get headline-and-source cards instead of summaries.
+And I made one call I keep coming back to: **the app has to work with no AI key.**
+Every ranking, filter and classification is deterministic, and the model only adds
+summaries and translation on top. It means the app is cheap, it survives an API
+outage, and anyone can clone it and run it without spending money. It also forced me
+to write real logic instead of asking a model to do the thinking.
 
-### Useful scripts
-
-```bash
-npm run ingest                                             # run the pipeline
-npx tsx --env-file=.env.local src/scripts/stats.ts         # corpus stats by scope/category/source
-npx tsx --env-file=.env.local src/scripts/reclassify.ts    # re-run classification over stored rows
-npx tsx src/scripts/test-classify.ts                       # classifier assertions
-npx tsx --env-file=.env.local src/scripts/debug-source.ts reuters ap   # diagnose a source
-```
-
-`reclassify` matters: articles are classified once at ingestion, so changing the
-taxonomy requires re-running it over stored rows.
-
----
-
-## Roadmap
-
-- **Phase 1 (done)** — scopes, categories, discovery cascade, deterministic ranking,
-  grounded summaries with caching, sort/time filters, EN/HI toggle, Active/History.
-- **Phase 2 (done)** — Supabase Auth (email + password), For You feed, saved articles
-  with collections, notes and due dates, per-user archive, persisted preferences.
-- **Phase 2.5 (done)** — in-app reader with a per-source full-text allowlist, five-way
-  engagement (like / interested / not interested / save / repost), public profiles with
-  Instagram and X links, month timeline with auto-detected news spikes, Gemini as a
-  zero-cost default AI provider, everyday-Hindi copy pass, and a wider two-column layout
-  with View Transitions.
-- **Phase 3** — AI rerank, 24h recommendation refresh, cross-source comparison view,
-  News vs Opinion classification surfaced as a filter, search, OG images per article.
+There is more detail in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), including the
+bugs that cost me the most time.
 
 ## Known limitations
 
-- **PTI yields nothing right now.** Their news sitemap index has been stale since
-  26 Aug 2026 and their main sitemap is a static 2023 site map. It stays configured
-  and self-heals when they resume publishing.
-- **Most stories land in the general category bucket.** Deterministic classification
-  from a headline plus a URL path can only go so far; publishers with generic paths
-  (`/article/`, `/news/`) and headlines without category keywords have no signal to
-  read. AI-assisted classification of the residual is the intended fix.
-- **"Most Popular" is a proxy.** It uses the deterministic score until real
-  view-count tracking exists.
+I would rather list these than have you find them.
+
+- **PTI currently returns nothing.** Their news sitemap index has been stale since
+  26 August 2026 and their main sitemap is a static 2023 site map. It stays configured
+  and will start working again on its own if they resume publishing.
+- **Most stories land in the general category bucket.** A headline plus a URL path
+  only carries so much signal, and publishers using generic paths like `/article/`
+  give you nothing to read. AI-assisted classification of the leftovers is the fix.
+- **"Most Popular" is a proxy.** It sorts by the deterministic score, because there is
+  no view tracking yet.
+- **No full article text is shown for any source.** The reader can display it, but the
+  per-source permission flag ships off for all 17 — none of them grants republication
+  rights. You get a lead-in and a link out.
+- **Saves are per-browser.** That is the cost of having no accounts.
+- **The cron runs once a day on Vercel's free plan**, which caps cron frequency at
+  daily. More often needs an external scheduler hitting the endpoint.
+
+## Roadmap
+
+- **Done** — scopes and categories, discovery cascade, deterministic ranking, grounded
+  summaries with caching, sort and time filters, English/Hindi, in-app reader,
+  reactions, saved articles with collections and notes, For You, month timeline
+- **Next** — search (there is no way to find a story yet), News vs Opinion as a
+  filter, cross-source comparison view, share images per article
+- **Maybe** — AI classification of the general bucket, offline reading for saved
+  articles
+
+## License
+
+MIT — see [LICENSE](LICENSE).

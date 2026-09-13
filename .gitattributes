@@ -1,0 +1,14 @@
+# Normalise line endings so the repo is identical on Windows, macOS and Linux.
+# Without this, every commit from Windows warns about LF -> CRLF and diffs can
+# show whole files as changed when nothing was.
+* text=auto eol=lf
+
+# Binary files must never be touched.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.woff binary
+*.woff2 binary
