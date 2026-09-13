@@ -166,6 +166,24 @@ Publisher HTML is never trusted. `src/lib/sanitize.ts` is an allowlist — unkno
 dropped, unknown attribute dropped, non-http(s) URL dropped — because that markup
 renders through `dangerouslySetInnerHTML` on our own origin.
 
+## Search
+
+Postgres full-text search over title and excerpt, with a GIN expression index.
+`websearch_to_tsquery` parses the query, so quoted phrases, `OR` and a leading `-`
+all behave the way people expect from a search box, and the input is parameterised
+rather than interpolated.
+
+Search deliberately ignores the reader's scope, category and time filters. A search
+box that only looks inside today's India feed is not a search box. It also skips the
+day-queue diversity cap — that cap exists to stop one outlet dominating a browse
+feed, but somebody searching for a story wants the matches, not a balanced sample.
+Results are ranked by `ts_rank` first, then recency.
+
+The index lives in `drizzle/manual/0001_search_index.sql` rather than in the drizzle
+schema, because drizzle has no way to express an expression index over
+`to_tsvector()`. Its expression has to match the query's expression character for
+character or the planner silently ignores it and falls back to a sequential scan.
+
 ## The month timeline
 
 A strip of the current month where bar height is that day's volume, and an accent cap

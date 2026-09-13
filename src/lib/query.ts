@@ -1,6 +1,6 @@
 import { db } from "@/lib/db/client";
 import { articles, articleSummaries, sources } from "@/lib/db/schema";
-import { and, desc, eq, gte, lt, asc, inArray, notInArray } from "drizzle-orm";
+import { and, desc, eq, gte, lt, asc, inArray, notInArray, sql } from "drizzle-orm";
 import type { Category, Scope } from "@/config/taxonomy";
 import { scoreArticle, selectDailyQueue, type RankableArticle } from "@/lib/ranking/deterministic";
 
@@ -68,6 +68,119 @@ function rangeStart(range: RangeOption): Date {
 }
 
 const DEFAULT_DAILY_TARGET = 30;
+const SEARCH_LIMIT = 60;
+
+/** One place defining what a card needs, so search and the feed cannot drift apart. */
+const CARD_COLUMNS = {
+  id: articles.id,
+  clusterId: articles.clusterId,
+  title: articles.title,
+  canonicalUrl: articles.canonicalUrl,
+  sourceId: articles.sourceId,
+  sourceName: sources.name,
+  sourcePriority: sources.priority,
+  byline: articles.byline,
+  publishedAt: articles.publishedAt,
+  discoveredAt: articles.discoveredAt,
+  category: articles.category,
+  contentType: articles.contentType,
+  isBaseline: articles.isBaseline,
+  excerpt: articles.excerpt,
+  summaryEn: articleSummaries.summaryEn,
+  grounded: articleSummaries.grounded,
+} as const;
+
+/** Written out rather than derived from CARD_COLUMNS: drizzle's column type
+ *  carries the data type but not its nullability, so a mapped type quietly
+ *  makes every nullable column non-null. */
+interface CardRow {
+  id: string;
+  clusterId: string;
+  title: string;
+  canonicalUrl: string;
+  sourceId: string;
+  sourceName: string;
+  sourcePriority: number;
+  byline: string | null;
+  publishedAt: Date | null;
+  discoveredAt: Date;
+  category: string;
+  contentType: string;
+  isBaseline: boolean;
+  excerpt: string | null;
+  summaryEn: string | null;
+  grounded: boolean | null;
+}
+
+/**
+ * Collapses rows into one card per story cluster, keeping the highest-priority
+ * article as primary and every other outlet in the cluster alongside it.
+ * Preserves the order clusters were first seen in, so a caller that sorted by
+ * relevance keeps that order.
+ */
+function toCards(rows: CardRow[], now: number): StoryCard[] {
+  const byCluster = new Map<string, CardRow[]>();
+  for (const row of rows) {
+    const bucket = byCluster.get(row.clusterId) ?? [];
+    bucket.push(row);
+    byCluster.set(row.clusterId, bucket);
+  }
+
+  return [...byCluster.values()].map((bucket) => {
+    const sorted = [...bucket].sort((a, b) => b.sourcePriority - a.sourcePriority);
+    const primary = sorted[0];
+    return {
+      clusterId: primary.clusterId,
+      id: primary.id,
+      title: primary.title,
+      canonicalUrl: primary.canonicalUrl,
+      sourceId: primary.sourceId,
+      sourceName: primary.sourceName,
+      byline: primary.byline,
+      publishedAt: primary.publishedAt,
+      discoveredAt: primary.discoveredAt,
+      category: primary.category as Category,
+      contentType: primary.contentType,
+      isBaseline: primary.isBaseline,
+      isNew: !primary.isBaseline && now - primary.discoveredAt.getTime() < NEW_BADGE_WINDOW_MS,
+      excerpt: primary.excerpt,
+      summaryEn: primary.summaryEn,
+      grounded: primary.grounded ?? false,
+      otherOutlets: sorted.slice(1).map((r) => ({ sourceName: r.sourceName, url: r.canonicalUrl })),
+    };
+  });
+}
+
+/**
+ * Full-text search across every scope and the whole corpus.
+ *
+ * Deliberately ignores the reader's scope, category and time filters: a search
+ * box that only looks inside today's India feed is not a search box. Ranked by
+ * relevance first, then recency, and the day-queue diversity cap is skipped —
+ * that exists to stop one outlet dominating a browse feed, but when someone
+ * searches for a story they want the matches, not a balanced sample.
+ */
+export async function searchArticles(query: string, now: number): Promise<StoryCard[]> {
+  const trimmed = query.trim();
+  if (trimmed.length < 2) return [];
+
+  // Must match the expression on articles_search_idx exactly, or Postgres
+  // cannot use the GIN index. websearch_to_tsquery handles quoted phrases,
+  // OR and leading - the way people expect a search box to behave.
+  const document = sql`to_tsvector('english', ${articles.title} || ' ' || coalesce(${articles.excerpt}, ''))`;
+  const tsquery = sql`websearch_to_tsquery('english', ${trimmed})`;
+
+  const rows = await db
+    .select(CARD_COLUMNS)
+    .from(articles)
+    .innerJoin(sources, eq(articles.sourceId, sources.id))
+    .leftJoin(articleSummaries, eq(articles.id, articleSummaries.articleId))
+    .where(sql`${document} @@ ${tsquery}`)
+    .orderBy(desc(sql`ts_rank(${document}, ${tsquery})`), desc(articles.discoveredAt))
+    .limit(SEARCH_LIMIT);
+
+  return toCards(rows, now);
+}
 
 export async function queryArticles(params: QueryArticlesParams): Promise<StoryCard[]> {
   const {
@@ -104,22 +217,7 @@ export async function queryArticles(params: QueryArticlesParams): Promise<StoryC
 
   const rows = await db
     .select({
-      id: articles.id,
-      clusterId: articles.clusterId,
-      title: articles.title,
-      canonicalUrl: articles.canonicalUrl,
-      sourceId: articles.sourceId,
-      sourceName: sources.name,
-      sourcePriority: sources.priority,
-      byline: articles.byline,
-      publishedAt: articles.publishedAt,
-      discoveredAt: articles.discoveredAt,
-      category: articles.category,
-      contentType: articles.contentType,
-      isBaseline: articles.isBaseline,
-      excerpt: articles.excerpt,
-      summaryEn: articleSummaries.summaryEn,
-      grounded: articleSummaries.grounded,
+      ...CARD_COLUMNS,
     })
     .from(articles)
     .innerJoin(sources, eq(articles.sourceId, sources.id))

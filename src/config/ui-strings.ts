@@ -90,6 +90,14 @@ export const UI_STRINGS = {
   "timeline.bigDay": { en: "Big news day", hi: "बड़ी खबर का दिन" },
   "timeline.stories": { en: "stories", hi: "खबरें" },
 
+  "search.placeholder": { en: "Search stories", hi: "खबरें खोजें" },
+  "search.title": { en: "Search", hi: "खोज" },
+  "search.submit": { en: "Search", hi: "खोजें" },
+  "search.prompt": { en: "Search every source, across every date.", hi: "हर सोर्स में, हर तारीख़ में खोजें।" },
+  "search.noResults": { en: "Nothing matched that. Try different words.", hi: "इससे कुछ नहीं मिला। दूसरे शब्द आज़माएँ।" },
+  "search.resultCount": { en: "results", hi: "नतीजे" },
+  "nav.search": { en: "Search", hi: "खोज" },
+
   "nav.saved": { en: "Saved", hi: "सेव किए हुए" },
   "nav.preferences": { en: "Preferences", hi: "सेटिंग्स" },
 

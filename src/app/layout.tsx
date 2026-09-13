@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { TabNav } from "@/components/tab-nav";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LanguageToggle } from "@/components/language-toggle";
+import { SearchBox } from "@/components/search-box";
 import { getLang } from "@/lib/lang";
 import { t } from "@/config/ui-strings";
 
@@ -47,6 +48,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
                 {t("site.title", lang)}
               </Link>
               <div className="flex items-center gap-2 sm:gap-3">
+                <SearchBox lang={lang} />
                 <Link
                   href="/saved"
                   className="text-sm text-muted hover:text-foreground transition-colors"

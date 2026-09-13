@@ -58,6 +58,7 @@ cd Bharat-lens
 npm install
 cp .env.example .env.local     # add a DATABASE_URL
 npm run db:push                # create the tables
+psql "$DATABASE_URL" -f drizzle/manual/0001_search_index.sql   # search index
 npm run ingest                 # first run records a quiet baseline
 npm run dev
 ```
