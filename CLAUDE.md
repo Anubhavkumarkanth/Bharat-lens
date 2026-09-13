@@ -131,6 +131,13 @@ taxonomy keywords or classifier logic requires re-running it over stored rows.
 - **Publishers block unknown bots.** Business Standard, ANI, and AP return 403 to a
   custom bot UA even for their own advertised feeds, so `lib/ingestion/http.ts`
   sends a browser UA. robots.txt is still honoured.
+- **The cron is daily, not 3-hourly, because of the Vercel plan.** Hobby caps cron
+  at once per day and *fails the deployment* for any more frequent expression
+  ("Hobby accounts are limited to daily cron jobs"), so `vercel.json` uses
+  `0 1 * * *`. Hobby timing is also only accurate to the hour (±59 min). To ingest
+  more often without paying, keep this entry and have an external scheduler hit
+  `/api/cron/ingest` with `Authorization: Bearer $CRON_SECRET` — that is what
+  `CRON_SECRET` is for. Do not raise the frequency here while on Hobby.
 - **PTI currently yields nothing** — their news sitemap index has been stale since
   2026-08-26 and their main sitemap is a static 2023 site map. Kept configured
   deliberately; it self-heals if they resume publishing.
