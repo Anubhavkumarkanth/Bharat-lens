@@ -95,23 +95,27 @@ npm run lint             # eslint
 npx tsc --noEmit         # typecheck
 npm run db:push          # apply schema to Postgres (see rule 14 first)
 npm run ingest           # run the ingestion pipeline locally
-npx tsx --env-file=.env.local src/scripts/stats.ts            # corpus stats
-npx tsx --env-file=.env.local src/scripts/reclassify.ts       # re-run classification
-npx tsx --env-file=.env.local src/scripts/decode-entities.ts  # decode stored titles
-npx tsx --env-file=.env.local src/scripts/resummarize.ts      # re-summarize stored rows
-npx tsx src/scripts/test-classify.ts                          # classifier assertions
-npx tsx --env-file=.env.local src/scripts/debug-source.ts <source-id>
+
+npm run stats            # corpus stats
+npm run reclassify       # re-run classification over stored rows
+npm run recluster        # rebuild story clusters over stored rows
+npm run decode-entities  # normalize stored titles, excerpts and bylines
+npm run resummarize      # re-summarize stored rows
+npm run test:classify    # classifier assertions
+npm run debug-source <source-id>
 ```
 
-`reclassify.ts` matters: ingestion classifies once at insert time, so any change to
-taxonomy keywords or classifier logic requires re-running it over stored rows.
-Likewise `resummarize.ts` after a prompt change, since rule 4 never re-summarizes.
+Ingestion classifies, clusters and summarizes **once**, at insert time. Any change to
+taxonomy keywords, classifier logic, clustering rules or the summary prompt therefore
+does nothing to rows already stored until the matching backfill script is re-run.
 
 ## Source-specific notes
 
 - **Publishers block unknown bots.** Business Standard, ANI and AP return 403 to a
   custom bot UA even for their own advertised feeds, so `lib/ingestion/http.ts`
   sends a browser UA. robots.txt is still honoured.
-- **PTI currently yields nothing** — their news sitemap index has been stale since
-  2026-08-26 and their main sitemap is a static 2023 site map. Kept configured
-  deliberately; it self-heals if they resume publishing.
+- **PTI goes quiet for stretches.** Its news sitemap index was stale from 2026-08-26
+  and the source returned nothing for weeks; it resumed on its own on 2026-09-13
+  without any change here. That is the discovery cascade working as intended — a dead
+  source costs one request per run and recovers by itself. Don't remove a source
+  because it is returning zero today.

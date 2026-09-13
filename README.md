@@ -9,10 +9,21 @@ No sign-up. No account. Nothing personal stored.
 
 > **Status:** running locally, not yet deployed.
 
-## Screenshots
+![The India feed](docs/screenshots/feed.png)
 
-_Add these to `docs/screenshots/` and they will appear here — see the note in that
-folder for what to capture._
+<details>
+<summary>More screenshots</summary>
+
+**The in-app reader** — publisher markup sanitized, navigation stripped, then a
+hand-off to the source.
+
+![Reader view](docs/screenshots/reader.png)
+
+**Search** across every source and date.
+
+![Search results](docs/screenshots/search.png)
+
+</details>
 
 ## Why I built it
 
@@ -72,12 +83,14 @@ free tier — put the key in `GEMINI_API_KEY`.
 ### Useful scripts
 
 ```bash
-npm run ingest                                                # run the pipeline
-npx tsx --env-file=.env.local src/scripts/stats.ts            # corpus stats
-npx tsx --env-file=.env.local src/scripts/reclassify.ts       # re-classify stored rows
-npx tsx --env-file=.env.local src/scripts/decode-entities.ts  # fix HTML entities in titles
-npx tsx src/scripts/test-classify.ts                          # classifier assertions
-npx tsx --env-file=.env.local src/scripts/debug-source.ts reuters ap
+npm run ingest            # run the pipeline
+npm run stats             # corpus stats by scope, category and source
+npm run reclassify        # re-classify stored rows after a taxonomy change
+npm run recluster         # rebuild story clusters after a clustering change
+npm run decode-entities   # clean HTML entities and stray control chars in titles
+npm run resummarize       # re-summarize stored rows after a prompt change
+npm run test:classify     # classifier assertions
+npm run debug-source reuters ap
 ```
 
 `reclassify` matters more than it sounds: articles are classified once when they are
@@ -122,12 +135,17 @@ bugs that cost me the most time.
 
 I would rather list these than have you find them.
 
-- **PTI currently returns nothing.** Their news sitemap index has been stale since
-  26 August 2026 and their main sitemap is a static 2023 site map. It stays configured
-  and will start working again on its own if they resume publishing.
-- **Most stories land in the general category bucket.** A headline plus a URL path
+- **About 60% of stories land in the General bucket.** A headline plus a URL path
   only carries so much signal, and publishers using generic paths like `/article/`
-  give you nothing to read. AI-assisted classification of the leftovers is the fix.
+  give you nothing to read. It has its own category rather than being quietly folded
+  into a real one — burying them under Business & Economy made that filter useless.
+  AI-assisted classification of the leftovers is the intended fix.
+- **A publisher's own re-filings of a story show separately.** Clustering groups the
+  same story *across* outlets, and deliberately refuses to merge two articles from
+  the same source — without that rule, title similarity collapsed fifteen unrelated
+  AP regional listings into one card. The cost is that when an outlet posts "six
+  injured" and then "no injuries reported" an hour later, you see both. Telling those
+  apart from genuinely different stories needs more than title overlap.
 - **"Most Popular" is a proxy.** It sorts by the deterministic score, because there is
   no view tracking yet.
 - **No full article text is shown for any source.** The reader can display it, but the

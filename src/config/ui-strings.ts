@@ -18,6 +18,7 @@ export const UI_STRINGS = {
   "category.entertainment": { en: "Entertainment", hi: "मनोरंजन" },
   "category.health": { en: "Health", hi: "स्वास्थ्य" },
   "category.gen-z": { en: "Gen-Z", hi: "जेन-ज़ी" },
+  "category.general": { en: "General", hi: "सामान्य" },
 
   "sort.newest": { en: "Newest", hi: "सबसे नए" },
   "sort.trending": { en: "Today's Top", hi: "आज की टॉप खबरें" },
@@ -39,7 +40,10 @@ export const UI_STRINGS = {
   "state.newsReport": { en: "News Report", hi: "समाचार रिपोर्ट" },
   "state.headlineOnly": { en: "Summary unavailable — read the original for full context.", hi: "सार अभी नहीं है — पूरी खबर सोर्स पर पढ़ें।" },
     "state.forYouNoPrefs": { en: "Pick a few categories in Preferences and your feed builds itself.", hi: "प्राथमिकताओं में कुछ श्रेणियाँ चुनें और आपकी फ़ीड अपने आप बन जाएगी।" },
-  "state.empty": { en: "No stories yet for this filter. Check back soon.", hi: "इस फ़िल्टर में अभी कोई खबर नहीं। थोड़ी देर में देखें।" },
+  "state.emptyWiden": { en: "Look further back", hi: "और पीछे तक देखें" },
+  "state.emptyClearCategory": { en: "Show all categories", hi: "सभी श्रेणियाँ दिखाएँ" },
+  "state.emptyClearDay": { en: "Show the whole month", hi: "पूरा महीना दिखाएँ" },
+  "state.empty": { en: "Nothing here for these filters.", hi: "इन फ़िल्टर में कुछ नहीं है।" },
 
   "prefs.localNote": { en: "Saved on this browser only — no account, no email, nothing personal stored.", hi: "सिर्फ़ इस ब्राउज़र में सेव — कोई अकाउंट नहीं, कोई ईमेल नहीं, कुछ निजी नहीं।" },
   "prefs.noCookie": { en: "Could not save. Enable cookies and try again.", hi: "सेव नहीं हो सका। कुकीज़ चालू करके दोबारा कोशिश करें।" },

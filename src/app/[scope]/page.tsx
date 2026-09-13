@@ -103,12 +103,52 @@ export default async function ScopePage(props: PageProps<"/[scope]">) {
   // One clock reading for every card on the page.
   const now = requestNow();
 
+  /** Current query string with the given keys replaced, or removed when null. */
+  function withParams(changes: Record<string, string | null>): string {
+    const params = new URLSearchParams();
+    if (category) params.set("category", category);
+    if (typeof searchParams.sort === "string") params.set("sort", searchParams.sort);
+    if (typeof searchParams.range === "string") params.set("range", searchParams.range);
+    if (day) params.set("day", day);
+    for (const [key, value] of Object.entries(changes)) {
+      if (value === null) params.delete(key);
+      else params.set(key, value);
+    }
+    const query = params.toString();
+    return query ? `/${scope}?${query}` : `/${scope}`;
+  }
+
   return (
     <div>
       <MonthTimeline days={timeline} lang={lang} today={todayUtcDate()} activeDay={day} />
       <FilterBar lang={lang} sort={sort} range={range} />
       {stories.length === 0 ? (
-        <p className="text-center py-24 text-muted">{t("state.empty", lang)}</p>
+        // A dead-end empty state is the worst thing a reader can hit, and with a
+        // once-a-day cron the default 24h window is empty more often than not.
+        // Offer the filters that are actually narrowing it, widest-first.
+        <Notice>
+          <p>{t("state.empty", lang)}</p>
+          <div className="flex flex-wrap gap-3 justify-center text-sm">
+            {day && (
+              <Link href={withParams({ day: null })} className="text-accent hover:underline">
+                {t("state.emptyClearDay", lang)}
+              </Link>
+            )}
+            {category && (
+              <Link href={withParams({ category: null })} className="text-accent hover:underline">
+                {t("state.emptyClearCategory", lang)}
+              </Link>
+            )}
+            {range !== "year" && (
+              <Link
+                href={withParams({ range: "year", day: null })}
+                className="text-accent hover:underline"
+              >
+                {t("state.emptyWiden", lang)}
+              </Link>
+            )}
+          </div>
+        </Notice>
       ) : (
         // Two columns from lg up: a single narrow column in a wide window is
         // what made the feed look empty.

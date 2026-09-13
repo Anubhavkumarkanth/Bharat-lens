@@ -43,6 +43,12 @@ This was not a hypothetical worry. Measured against the live web:
 
 An RSS-only implementation loses five of seventeen sources, including Reuters and AP.
 
+Sources also go quiet and come back. PTI's sitemap index went stale in late August
+and the source returned nothing for weeks, then resumed on its own in mid-September
+with no change on this side. A dead source costs one request per run, so it stays
+configured rather than being removed — which is the whole argument for a cascade that
+falls through instead of failing.
+
 Sitemap resolution is bounded on three axes — depth (2), URL count (500) and age
 (7 days) — because a sitemap index can fan out a long way, and I would rather cap it
 than find the limit in production.
@@ -63,6 +69,27 @@ backed by a unique index. Cheap and exact.
 48-hour window groups them into one story cluster. A story carried by six papers
 becomes one card listing all six, instead of six cards saying the same thing.
 
+An outlet may appear in a cluster only once. That rule is doing real work: without
+it, AP's regional "Sportswatch Daily Listings" filings shared enough title tokens to
+collapse fifteen unrelated articles into a single card, hiding fourteen of them from
+the feed entirely and rendering "Also reported by AP, AP, AP". Same-URL duplicates
+are already handled by canonical identity, so cross-outlet grouping is the only job
+clustering has.
+
+### The run is time-boxed, and sources rotate
+
+Each summarized article also has its body fetched and stored for the reader, which
+makes a full pass over every source take far longer than the 300 seconds Vercel
+allows a function. Left unbounded, the platform kills the run mid-flight.
+
+So a run stops starting new work at a deadline — and because of that, sources are
+processed **least-recently-scanned first**. A fixed order plus a deadline would
+starve the tail of the list forever: the same sources would be reached every run and
+the last few never would. Ordering by `lastScannedAt` means whatever got cut off is
+first in line next time. Skipped sources are reported in the response rather than
+dropped silently, so a run that keeps running out of time looks unhealthy instead of
+looking fine.
+
 ## Classification
 
 Deterministic, and ordered by signal strength: the publisher's own URL section path
@@ -71,6 +98,11 @@ general bucket. A publisher telling you the section is better evidence than a ke
 you guessed at.
 
 Two bugs worth naming, because both are easy to ship by accident:
+
+The fallback category is a real category. It used to fall through to
+`business-economy`, which filed two thirds of the corpus — crime, weather, road
+accidents — under Business & Economy and made that filter useless to anyone looking
+for business news. "General" is honest about what the classifier does not know.
 
 - **Keyword matching has to be word-boundary based.** A plain substring check for
   "ai" matches "said", "again" and "chair" — it inflated Technology by roughly 14x.

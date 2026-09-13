@@ -1,7 +1,7 @@
 import { db } from "@/lib/db/client";
 import { articles } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
-import { decodeEntities } from "@/lib/ingestion/entities";
+import { normalizeText } from "@/lib/ingestion/entities";
 
 /**
  * Rewrites stored titles, excerpts and bylines through the entity decoder.
@@ -22,9 +22,9 @@ async function main() {
 
   let changed = 0;
   for (const row of rows) {
-    const title = decodeEntities(row.title);
-    const excerpt = row.excerpt === null ? null : decodeEntities(row.excerpt);
-    const byline = row.byline === null ? null : decodeEntities(row.byline);
+    const title = normalizeText(row.title);
+    const excerpt = row.excerpt === null ? null : normalizeText(row.excerpt);
+    const byline = row.byline === null ? null : normalizeText(row.byline);
 
     if (title !== row.title || excerpt !== row.excerpt || byline !== row.byline) {
       await db.update(articles).set({ title, excerpt, byline }).where(eq(articles.id, row.id));

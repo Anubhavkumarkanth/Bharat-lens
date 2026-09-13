@@ -94,8 +94,11 @@ export function classifyCategory(title: string, excerpt: string | null, url?: st
     const hits = countKeywordHits(text, cat.keywords);
     if (hits > best.hits) best = { id: cat.id, hits };
   }
-  // No section hint and no keyword matched: general-interest bucket.
-  return best.hits > 0 ? best.id : "business-economy";
+  // No section hint and no keyword matched. This has to be a bucket of its own:
+  // it used to fall through to "business-economy", which put two thirds of the
+  // corpus — crime, weather, accidents — under Business & Economy, and made that
+  // filter useless for anyone actually looking for business news.
+  return best.hits > 0 ? best.id : "general";
 }
 
 /** News report vs opinion/analysis, from the publisher's own section path. */

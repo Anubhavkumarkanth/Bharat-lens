@@ -10,7 +10,14 @@
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "ingest": "tsx --env-file=.env.local src/scripts/ingest.ts"
+    "ingest": "tsx --env-file=.env.local src/scripts/ingest.ts",
+    "stats": "tsx --env-file=.env.local src/scripts/stats.ts",
+    "reclassify": "tsx --env-file=.env.local src/scripts/reclassify.ts",
+    "recluster": "tsx --env-file=.env.local src/scripts/recluster.ts",
+    "resummarize": "tsx --env-file=.env.local src/scripts/resummarize.ts",
+    "decode-entities": "tsx --env-file=.env.local src/scripts/decode-entities.ts",
+    "debug-source": "tsx --env-file=.env.local src/scripts/debug-source.ts",
+    "test:classify": "tsx src/scripts/test-classify.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.124.0",
@@ -37,5 +44,17 @@
     "tailwindcss": "^4",
     "tsx": "^4.23.13",
     "typescript": "^5"
-  }
+  },
+  "description": "India-first news reader: 17 wire and print sources, deduplicated across outlets, with grounded two-sentence summaries in English and Hindi.",
+  "license": "MIT",
+  "author": "Anubhav Kumar",
+  "keywords": [
+    "news",
+    "india",
+    "nextjs",
+    "typescript",
+    "postgres",
+    "rss",
+    "aggregator"
+  ]
 }

@@ -26,7 +26,8 @@ export type Category =
   | "education"
   | "entertainment"
   | "health"
-  | "gen-z";
+  | "gen-z"
+  | "general";
 
 export const CATEGORIES: { id: Category; label: string; keywords: string[] }[] = [
   { id: "finance", label: "Finance", keywords: ["stock market", "sensex", "nifty", "rupee", "inflation", "interest rate", "rbi", "mutual fund", "ipo", "bond yield", "forex"] },
@@ -39,6 +40,11 @@ export const CATEGORIES: { id: Category; label: string; keywords: string[] }[] =
   { id: "entertainment", label: "Entertainment", keywords: ["bollywood", "film", "movie", "box office", "celebrity", "music", "ott", "web series", "actor", "actress"] },
   { id: "health", label: "Health", keywords: ["hospital", "vaccine", "disease", "outbreak", "who", "mental health", "healthcare", "medicine", "doctor", "epidemic"] },
   { id: "gen-z", label: "Gen-Z", keywords: ["gen z", "social media trend", "influencer", "viral", "meme", "tiktok", "instagram reel", "youth culture"] },
+  // Deliberately keyword-free: this is where classifyCategory puts anything with
+  // no section hint and no keyword match. It must exist as a real category —
+  // falling back into a meaningful one instead labels crime, weather and
+  // accident reporting as business news.
+  { id: "general", label: "General", keywords: [] },
 ];
 
 /**

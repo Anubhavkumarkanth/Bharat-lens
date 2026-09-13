@@ -89,7 +89,39 @@ export function sanitizeArticleHtml(html: string, baseUrl?: string): string {
     }
   }
 
+  dropNavigationLists(root);
+
   return root.innerHTML;
+}
+
+/**
+ * Removes breadcrumb and navigation lists that Readability keeps.
+ *
+ * A publisher's "Home / News / Cities / Delhi" trail is markup, not reporting,
+ * and it was rendering as the first thing in the reader — and eating part of
+ * the lead-in budget for restricted sources, so readers got navigation instead
+ * of the story.
+ *
+ * The test is structural rather than a list of class names: a list whose items
+ * are nothing but short links is navigation in any publisher's markup. A real
+ * list in an article has prose in its items.
+ */
+function dropNavigationLists(root: Element): void {
+  for (const list of Array.from(root.querySelectorAll("ul, ol")) as Element[]) {
+    const items = Array.from(list.querySelectorAll("li")) as Element[];
+    if (items.length === 0) continue;
+
+    const allAreShortLinks = items.every((li) => {
+      const link = li.querySelector("a");
+      if (!link) return false;
+      const itemText = (li.textContent ?? "").trim();
+      const linkText = (link.textContent ?? "").trim();
+      // The item is the link, and the link is a label rather than a sentence.
+      return itemText === linkText && itemText.split(/\s+/).length <= 3;
+    });
+
+    if (allAreShortLinks) list.remove();
+  }
 }
 
 /**
