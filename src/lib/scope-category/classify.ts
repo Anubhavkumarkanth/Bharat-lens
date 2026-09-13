@@ -3,6 +3,7 @@ import {
   CATEGORIES,
   CATEGORY_PATH_HINTS,
   IMPACT_ON_INDIA_KEYWORDS,
+  INDIA_ABROAD_KEYWORDS,
   INDIA_KEYWORDS,
   OPINION_PATH_SEGMENTS,
   WORLD_SECTION_SEGMENTS,
@@ -35,10 +36,19 @@ function countKeywordHits(haystack: string, keywords: string[]): number {
 }
 
 /**
- * Deterministic scope classifier. The publisher's section path is checked
- * first: an Indian outlet's /world/ story belongs in World (or Impact on
- * India when it carries impact keywords), not in the India tab. Otherwise
- * Indian sources default to India, and global sources route by keyword match.
+ * Deterministic scope classifier.
+ *
+ * The publisher's section path is checked first: an Indian outlet's /world/
+ * story belongs in World, not in the India tab.
+ *
+ * The important subtlety is that INDIA_KEYWORDS are useless for Indian sources
+ * — those outlets mention India in nearly every story. Indian sources used to
+ * be blanket-routed to "india" because of that, which starved the other two
+ * scopes: twelve of seventeen sources are Indian, so India Abroad and Impact on
+ * India could only ever be filled by foreign outlets and sat at 79 and 37
+ * articles against India's 3,909. The diaspora and impact keyword sets are
+ * specific enough to discriminate regardless of who published the story, so
+ * every source is now routed by signal rather than by nationality.
  */
 export function classifyScope(
   source: SourceConfig,
@@ -49,22 +59,34 @@ export function classifyScope(
   const text = `${title} ${excerpt ?? ""}`.toLowerCase();
   const indiaHits = countKeywordHits(text, INDIA_KEYWORDS);
   const impactHits = countKeywordHits(text, IMPACT_ON_INDIA_KEYWORDS);
+  const abroadHits = countKeywordHits(text, INDIA_ABROAD_KEYWORDS);
 
   const isForeignDesk =
     url !== undefined &&
     pathSegments(url).some((s) => WORLD_SECTION_SEGMENTS.includes(s));
 
+  // Whichever of the two specific signals is stronger wins, and a tie goes to
+  // the diaspora. "Indian students hit by new visa rules abroad" matches both,
+  // but it is a story about Indian students, not about India's economy — who
+  // the story is about is the more concrete claim when both fire.
+  const specific: Scope | null =
+    abroadHits > 0 && abroadHits >= impactHits
+      ? "india-abroad"
+      : impactHits > 0
+        ? "impact-on-india"
+        : null;
+
   if (isForeignDesk) {
-    if (impactHits > 0) return "impact-on-india";
+    if (specific) return specific;
+    // A foreign outlet's world-desk story that is simply *about* India.
     if (indiaHits > 0 && source.country !== "IN") return "india-abroad";
     return "world";
   }
 
-  if (source.country === "IN") return "india";
+  if (source.country === "IN") return specific ?? "india";
 
-  if (indiaHits > 0 && indiaHits >= impactHits) return "india-abroad";
-  if (impactHits > 0) return "impact-on-india";
-  return "world";
+  if (specific) return specific;
+  return indiaHits > 0 ? "india-abroad" : "world";
 }
 
 function pathSegments(url: string): string[] {

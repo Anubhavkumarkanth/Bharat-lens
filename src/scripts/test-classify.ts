@@ -11,8 +11,8 @@ function check(desc: string, got: string, want: string) {
 }
 
 // The substring bugs that inflated "technology" and would misroute "Indiana".
-check('"said"/"again" must not match the "ai" keyword', classifyCategory("Minister said talks will begin again", null), "business-economy");
-check('"chair" must not match "ai"', classifyCategory("Committee chair to maintain current stance", null), "business-economy");
+check('"said"/"again" must not match the "ai" keyword', classifyCategory("Minister said talks will begin again", null), "general");
+check('"chair" must not match "ai"', classifyCategory("Committee chair to maintain current stance", null), "general");
 check('"Indiana" must not put a US story in india-abroad', classifyScope(reuters, "Indiana factory closes after storm damage", null), "world");
 
 // True positives must still work.
@@ -23,8 +23,11 @@ check("India keyword routes global source to india-abroad", classifyScope(reuter
 check("impact keyword routes to impact-on-india", classifyScope(reuters, "Federal Reserve holds fed rate steady", null), "impact-on-india");
 check("Indian source defaults to india scope", classifyScope(theHindu, "Monsoon session begins", null), "india");
 
-// URL section path beats headline keywords, and rescues headlines with no keyword at all.
-check("section path wins over keywordless headline", classifyCategory("Man stabbed to death in east Delhi", null, "https://theprint.in/india/man-stabbed/1/"), "business-economy");
+// URL section path beats headline keywords.
+// A path with no category hint and a headline with no keyword lands in general —
+// it must NOT fall through into a real category, which is what put crime and
+// weather reporting under Business & Economy.
+check("no hint and no keyword lands in general", classifyCategory("Man stabbed to death in east Delhi", null, "https://theprint.in/india/man-stabbed/1/"), "general");
 check("sports section path classifies", classifyCategory("Late goal seals it", null, "https://apnews.com/sports/late-goal"), "sports");
 check("business section path classifies", classifyCategory("Firm names new head", null, "https://www.business-standard.com/business/firm-names-head"), "business-economy");
 check("entertainment section path classifies", classifyCategory("Star announces project", null, "https://indianexpress.com/entertainment/star-project/"), "entertainment");
@@ -41,6 +44,30 @@ check("Indian source domestic story stays india", classifyScope(theHindu, "Niger
 check("global source /world/ story about India is india-abroad", classifyScope(reuters, "India signs trade deal", null, "https://www.reuters.com/world/india-trade-deal"), "india-abroad");
 
 let failed = 0;
+// Scope routing must work on signal, not on who published the story. Indian
+// outlets mention India constantly, so they were once blanket-routed to "india",
+// which left India Abroad and Impact on India nearly empty.
+check(
+  "Indian source diaspora story goes to india-abroad",
+  classifyScope(theHindu, "Indian students in Canada face new housing rules", null),
+  "india-abroad"
+);
+check(
+  "Indian source story on foreign policy hitting India goes to impact-on-india",
+  classifyScope(theHindu, "US tariff on steel to hit exporters", null),
+  "impact-on-india"
+);
+check(
+  "ordinary domestic story from an Indian source stays india",
+  classifyScope(theHindu, "Man stabbed to death in east Delhi", null),
+  "india"
+);
+check(
+  "diaspora beats impact when both appear",
+  classifyScope(theHindu, "Indian students hit by new visa rules abroad", null),
+  "india-abroad"
+);
+
 for (const c of cases) {
   const ok = c.got === c.want;
   if (!ok) failed++;

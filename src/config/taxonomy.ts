@@ -107,6 +107,26 @@ export const INDIA_KEYWORDS = [
   "new delhi", "indian ocean", "kashmir", "punjab", "gujarat", "maharashtra", "tamil nadu",
 ];
 
+/**
+ * Keywords marking a story about Indians *outside* India.
+ *
+ * INDIA_KEYWORDS cannot do this job: an Indian outlet mentions India in almost
+ * every story, so "india" is noise there. These are specific to the diaspora —
+ * who the story is about, not merely where it was published.
+ */
+export const INDIA_ABROAD_KEYWORDS = [
+  "nri", "nris", "non-resident indian", "diaspora", "indian diaspora",
+  "indian-american", "indian american", "indian-origin", "indian origin",
+  "person of indian origin", "overseas indian", "overseas indians",
+  "oci card", "pio card", "indian expat", "indian expats",
+  "indian student", "indian students", "indian community", "indian nationals",
+  "indian migrant", "indian migrants", "indian workers", "indian professionals",
+  "indian embassy", "indian consulate", "indian high commission",
+  "indians abroad", "indians living", "indian-origin man", "indian-origin woman",
+  "indian passport", "indian tourists", "indian sailors", "indian crew",
+  "indian techie", "indian techies", "green card", "indians in",
+];
+
 /** Keywords marking global events that materially affect India (configurable, not hardcoded logic). */
 export const IMPACT_ON_INDIA_KEYWORDS = [
   "oil price", "crude oil", "opec", "federal reserve", "fed rate", "us tariff", "trade policy",

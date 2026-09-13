@@ -20,6 +20,9 @@ export interface QueryArticlesParams {
   excludeArticleIds?: string[];
   /** YYYY-MM-DD from the month timeline. Overrides `range` when set. */
   day?: string;
+  /** 1-based. The diversity cap is applied to the whole span up to this page,
+   *  then sliced, so paging deeper cannot let one outlet take over page 3. */
+  page?: number;
 }
 
 export interface ReportingOutlet {
@@ -67,7 +70,9 @@ function rangeStart(range: RangeOption): Date {
   }
 }
 
-const DEFAULT_DAILY_TARGET = 30;
+/** Cards per feed page. Exported so the page can tell a full page (probably
+ *  more behind it) from a short one (definitely the end). */
+export const PAGE_SIZE = 40;
 const SEARCH_LIMIT = 60;
 
 /** One place defining what a card needs, so search and the feed cannot drift apart. */
@@ -188,9 +193,10 @@ export async function queryArticles(params: QueryArticlesParams): Promise<StoryC
     category,
     sort = "newest",
     range = "1d",
-    limit = DEFAULT_DAILY_TARGET,
+    limit = PAGE_SIZE,
     excludeArticleIds = [],
     day,
+    page = 1,
   } = params;
 
   const scopes = Array.isArray(scope) ? scope : [scope];
@@ -224,7 +230,7 @@ export async function queryArticles(params: QueryArticlesParams): Promise<StoryC
     .leftJoin(articleSummaries, eq(articles.id, articleSummaries.articleId))
     .where(and(...conditions))
     .orderBy(sort === "oldest" ? asc(articles.discoveredAt) : desc(articles.discoveredAt))
-    .limit(500); // broad candidate pool; trimmed to `limit` below
+    .limit(1500); // broad candidate pool; clustered and trimmed below
 
   // Group into one card per story cluster, keeping the highest-priority article as primary
   // and every other source in the cluster as an "other outlet" for the compare view.
@@ -277,9 +283,21 @@ export async function queryArticles(params: QueryArticlesParams): Promise<StoryC
   // prolific outlet can't wall off a scope), then *order* that queue by whatever
   // the reader asked for.
   const byId = new Map(scored.map((s) => [s.rankable.id, s.card]));
+
+  // Order the whole candidate set once, with a fixed per-source cap, then slice
+  // the requested page out of it.
+  //
+  // Selecting only as much as the current page needs looks equivalent and is
+  // not: selectDailyQueue derives its per-source cap from the target size, so
+  // asking for 40 caps a source at 10 while asking for 80 caps it at 20. The two
+  // selections are then different lists rather than one being a prefix of the
+  // other, and pages overlap — seven stories appeared on both page 1 and page 2.
+  // A cap tied to PAGE_SIZE keeps every page a slice of the same ordering.
+  const rankables = scored.map((s) => s.rankable);
   const selected = selectDailyQueue(
-    scored.map((s) => s.rankable),
-    limit
+    rankables,
+    rankables.length,
+    Math.max(2, Math.ceil(PAGE_SIZE / 4))
   );
 
   const ordered = [...selected];
@@ -295,5 +313,9 @@ export async function queryArticles(params: QueryArticlesParams): Promise<StoryC
     ordered.sort((a, b) => scoreArticle(b, now) - scoreArticle(a, now));
   }
 
-  return ordered.map((r) => byId.get(r.id)!).filter(Boolean);
+  const start = (Math.max(1, page) - 1) * limit;
+  return ordered
+    .slice(start, start + limit)
+    .map((r) => byId.get(r.id)!)
+    .filter(Boolean);
 }

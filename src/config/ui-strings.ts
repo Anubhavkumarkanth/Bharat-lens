@@ -100,6 +100,10 @@ export const UI_STRINGS = {
   "search.prompt": { en: "Search every source, across every date.", hi: "हर सोर्स में, हर तारीख़ में खोजें।" },
   "search.noResults": { en: "Nothing matched that. Try different words.", hi: "इससे कुछ नहीं मिला। दूसरे शब्द आज़माएँ।" },
   "search.resultCount": { en: "results", hi: "नतीजे" },
+  "page.more": { en: "More stories", hi: "और खबरें" },
+  "page.back": { en: "Back", hi: "पीछे" },
+  "page.number": { en: "Page", hi: "पेज" },
+
   "nav.search": { en: "Search", hi: "खोज" },
 
   "nav.saved": { en: "Saved", hi: "सेव किए हुए" },

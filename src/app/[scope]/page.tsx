@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SCOPES, type Scope, type Category } from "@/config/taxonomy";
-import { queryArticles, type RangeOption, type SortOption } from "@/lib/query";
+import { PAGE_SIZE, queryArticles, type RangeOption, type SortOption } from "@/lib/query";
 import { getLang } from "@/lib/lang";
 import { t } from "@/config/ui-strings";
 import { getVisitorId } from "@/lib/visitor";
@@ -43,6 +43,7 @@ export default async function ScopePage(props: PageProps<"/[scope]">) {
   const sort = (typeof searchParams.sort === "string" ? searchParams.sort : prefs.defaultSort) as SortOption;
   const range = (typeof searchParams.range === "string" ? searchParams.range : prefs.defaultRange) as RangeOption;
   const day = typeof searchParams.day === "string" ? searchParams.day : undefined;
+  const page = Math.max(1, Number(searchParams.page) || 1);
 
   // For You needs categories to build from; it is open to everyone otherwise.
   if (scopeConfig.personal && prefs.categories.length === 0) {
@@ -77,9 +78,10 @@ export default async function ScopePage(props: PageProps<"/[scope]">) {
         sort,
         range,
         day,
+        page,
         excludeArticleIds: interest?.excludedArticleIds,
       })
-    : await queryArticles({ scope: scope as Scope, category, sort, range, day });
+    : await queryArticles({ scope: scope as Scope, category, sort, range, day, page });
 
   // Stories from a category or outlet they marked "interested" float to the top
   // of the day's queue. Stable partition, so the chosen sort still holds within
@@ -110,6 +112,7 @@ export default async function ScopePage(props: PageProps<"/[scope]">) {
     if (typeof searchParams.sort === "string") params.set("sort", searchParams.sort);
     if (typeof searchParams.range === "string") params.set("range", searchParams.range);
     if (day) params.set("day", day);
+    if (page > 1) params.set("page", String(page));
     for (const [key, value] of Object.entries(changes)) {
       if (value === null) params.delete(key);
       else params.set(key, value);
@@ -165,6 +168,39 @@ export default async function ScopePage(props: PageProps<"/[scope]">) {
             />
           ))}
         </div>
+      )}
+
+      {/* A full page means there is probably another one. Cheaper and honest
+          enough for a feed — a count query over the whole corpus to decide
+          whether to show one link is not worth it. */}
+      {stories.length > 0 && (page > 1 || stories.length === PAGE_SIZE) && (
+        <nav className="flex items-center justify-between gap-4 mt-10 pt-6 border-t border-border text-sm">
+          {page > 1 ? (
+            <Link
+              href={withParams({ page: page === 2 ? null : String(page - 1) })}
+              className="text-accent hover:underline"
+            >
+              ← {t("page.back", lang)}
+            </Link>
+          ) : (
+            <span />
+          )}
+
+          <span className="text-muted text-xs">
+            {t("page.number", lang)} {page}
+          </span>
+
+          {stories.length === PAGE_SIZE ? (
+            <Link
+              href={withParams({ page: String(page + 1) })}
+              className="text-accent hover:underline"
+            >
+              {t("page.more", lang)} →
+            </Link>
+          ) : (
+            <span />
+          )}
+        </nav>
       )}
     </div>
   );

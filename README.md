@@ -43,11 +43,15 @@ So I wanted three specific things:
 
 ## What it does
 
-- **Five scopes × ten categories**, freely combinable — Finance-in-World and
+- **Five scopes × eleven categories**, freely combinable — Finance-in-World and
   Sports-in-Impact-on-India are both real views
-- **17 sources**: PTI, ANI, Reuters, AP, AFP, The Hindu, Indian Express, Livemint,
-  Business Standard, Economic Times, Hindustan Times, Scroll, The Print, BBC,
-  The Guardian, Bloomberg, Al Jazeera. Print and wire only, no television news
+- **35 sources.** Wires: PTI, ANI, Reuters, AP, AFP. Indian press: The Hindu, Indian
+  Express, Times of India, Hindustan Times, Livemint, Business Standard, Economic
+  Times, Financial Express, BusinessLine, Moneycontrol, The Telegraph, Deccan Herald,
+  Deccan Chronicle, The Tribune, New Indian Express, Scroll, The Print, The Wire,
+  Firstpost, Outlook. Global: BBC, The Guardian, Bloomberg, Al Jazeera, Nikkei Asia,
+  SCMP, The Straits Times, Dawn, Arab News, The National.
+  **Print and wire only — no television news**
 - **One card per story**, listing every outlet that ran it
 - **Two-sentence summaries** grounded strictly in the fetched article text
 - **English and Hindi**, with translations cached so each one is paid for once
@@ -56,6 +60,7 @@ So I wanted three specific things:
   come-back-to-it date
 - **A For You feed** built from the categories you pick and the stories you react to
 - **A month timeline** marking days when something actually happened
+- **Paged feeds**, so the whole corpus is reachable rather than the first 40 stories
 
 Personal features are keyed to an anonymous cookie, not an account. The tradeoff is
 that your saves live in one browser; in exchange there is no sign-up form and no

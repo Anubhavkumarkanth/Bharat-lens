@@ -99,6 +99,17 @@ you guessed at.
 
 Two bugs worth naming, because both are easy to ship by accident:
 
+Scope routing works on signal, not on who published the story. Indian outlets
+mention India in nearly every story, so `INDIA_KEYWORDS` cannot discriminate for
+them — which is why they used to be blanket-routed to "india". With twelve of
+seventeen sources Indian, that left India Abroad and Impact on India able to be
+filled only by foreign outlets, and they sat at 79 and 37 articles against India's
+3,909. Diaspora keywords ("Indian students", "NRI", "Indian-origin") are specific
+enough to discriminate regardless of publisher, so every source is now routed the
+same way. A tie between diaspora and impact goes to the diaspora: "Indian students
+hit by new visa rules abroad" is a story about Indian students, not about India's
+economy.
+
 The fallback category is a real category. It used to fall through to
 `business-economy`, which filed two thirds of the corpus — crime, weather, road
 accidents — under Business & Economy and made that filter useless to anyone looking
@@ -125,6 +136,13 @@ Two distinct steps, in this order:
 Collapsing these into a single sort is the obvious thing to do, and it is wrong: a
 prolific outlet wins on recency and walls off the scope before the reader's
 preference is ever consulted.
+
+Feeds are paged, and that interacts with the cap in a way worth knowing about.
+`selectDailyQueue` derives its per-source cap from the target size, so selecting
+"one page's worth" per page caps a source at 10 on page 1 and 20 on page 2 — two
+different selections rather than one sliced list, and seven stories showed up on
+both pages. The whole candidate set is ordered once with a cap tied to `PAGE_SIZE`,
+and each page is a slice of that single ordering.
 
 ## The AI layer is optional by design
 

@@ -66,4 +66,29 @@ export const SOURCES: SourceConfig[] = [
   { id: "guardian", name: "The Guardian", homepage: "https://www.theguardian.com", country: "GLOBAL", kind: "newspaper", feedUrl: "https://www.theguardian.com/world/india/rss", priority: 7 },
   { id: "bloomberg", name: "Bloomberg", homepage: "https://www.bloomberg.com", country: "GLOBAL", kind: "newspaper", feedUrl: "https://feeds.bloomberg.com/markets/news.rss", priority: 7 },
   { id: "al-jazeera", name: "Al Jazeera", homepage: "https://www.aljazeera.com", country: "GLOBAL", kind: "newspaper", feedUrl: "https://www.aljazeera.com/xml/rss/all.xml", priority: 7 },
+
+  // --- Indian print & digital, added to widen coverage ---
+  // Most are left without an explicit feedUrl on purpose: the discovery cascade
+  // finds them, and a wrong hardcoded URL is worse than no URL at all.
+  { id: "times-of-india", name: "Times of India", homepage: "https://timesofindia.indiatimes.com", country: "IN", kind: "newspaper", feedUrl: "https://timesofindia.indiatimes.com/rssfeedstopstories.cms", priority: 7 },
+  { id: "new-indian-express", name: "New Indian Express", homepage: "https://www.newindianexpress.com", country: "IN", kind: "newspaper", priority: 6 },
+  { id: "telegraph-india", name: "The Telegraph India", homepage: "https://www.telegraphindia.com", country: "IN", kind: "newspaper", priority: 6 },
+  { id: "deccan-herald", name: "Deccan Herald", homepage: "https://www.deccanherald.com", country: "IN", kind: "newspaper", priority: 6 },
+  { id: "tribune-india", name: "The Tribune", homepage: "https://www.tribuneindia.com", country: "IN", kind: "newspaper", priority: 6 },
+  { id: "deccan-chronicle", name: "Deccan Chronicle", homepage: "https://www.deccanchronicle.com", country: "IN", kind: "newspaper", priority: 5 },
+  { id: "the-wire", name: "The Wire", homepage: "https://thewire.in", country: "IN", kind: "newspaper", priority: 6 },
+  { id: "firstpost", name: "Firstpost", homepage: "https://www.firstpost.com", country: "IN", kind: "newspaper", priority: 5 },
+  { id: "moneycontrol", name: "Moneycontrol", homepage: "https://www.moneycontrol.com", country: "IN", kind: "newspaper", priority: 6 },
+  { id: "financial-express", name: "Financial Express", homepage: "https://www.financialexpress.com", country: "IN", kind: "newspaper", priority: 6 },
+  { id: "businessline", name: "The Hindu BusinessLine", homepage: "https://www.thehindubusinessline.com", country: "IN", kind: "newspaper", priority: 6 },
+  { id: "outlook-india", name: "Outlook India", homepage: "https://www.outlookindia.com", country: "IN", kind: "newspaper", priority: 5 },
+
+  // --- Global print & wire, for World and Impact-on-India ---
+  // Broadcasters are deliberately absent: rule 7 is print and wire only.
+  { id: "nikkei-asia", name: "Nikkei Asia", homepage: "https://asia.nikkei.com", country: "GLOBAL", kind: "newspaper", priority: 7 },
+  { id: "scmp", name: "South China Morning Post", homepage: "https://www.scmp.com", country: "GLOBAL", kind: "newspaper", priority: 6 },
+  { id: "straits-times", name: "The Straits Times", homepage: "https://www.straitstimes.com", country: "GLOBAL", kind: "newspaper", priority: 6 },
+  { id: "dawn", name: "Dawn", homepage: "https://www.dawn.com", country: "GLOBAL", kind: "newspaper", priority: 6 },
+  { id: "arab-news", name: "Arab News", homepage: "https://www.arabnews.com", country: "GLOBAL", kind: "newspaper", priority: 5 },
+  { id: "the-national", name: "The National", homepage: "https://www.thenationalnews.com", country: "GLOBAL", kind: "newspaper", priority: 5 },
 ];
