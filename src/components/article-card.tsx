@@ -19,9 +19,7 @@ export async function ArticleCard({
   lang,
   now,
   index = 0,
-  signedIn = false,
   saved = false,
-  reposted = false,
   reaction = NO_REACTION,
 }: {
   story: StoryCard;
@@ -29,9 +27,7 @@ export async function ArticleCard({
   /** Single clock reading from the page, so cards stay pure and agree with each other. */
   now: number;
   index?: number;
-  signedIn?: boolean;
   saved?: boolean;
-  reposted?: boolean;
   reaction?: Reaction;
 }) {
   const categoryLabel = t(`category.${story.category}` as UiStringKey, lang);
@@ -102,14 +98,8 @@ export async function ArticleCard({
       <div className="pt-2 border-t border-border">
         <ArticleActions
           articleId={story.id}
-          signedIn={signedIn}
           lang={lang}
-          initial={{
-            liked: reaction.liked,
-            interest: reaction.interest,
-            saved,
-            reposted,
-          }}
+          initial={{ liked: reaction.liked, interest: reaction.interest, saved }}
         />
       </div>
 

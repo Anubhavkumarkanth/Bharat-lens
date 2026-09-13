@@ -7,7 +7,6 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { TabNav } from "@/components/tab-nav";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LanguageToggle } from "@/components/language-toggle";
-import { AccountNav } from "@/components/account-nav";
 import { getLang } from "@/lib/lang";
 import { t } from "@/config/ui-strings";
 
@@ -48,7 +47,18 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
                 {t("site.title", lang)}
               </Link>
               <div className="flex items-center gap-2 sm:gap-3">
-                <AccountNav lang={lang} />
+                <Link
+                  href="/saved"
+                  className="text-sm text-muted hover:text-foreground transition-colors"
+                >
+                  {t("nav.saved", lang)}
+                </Link>
+                <Link
+                  href="/preferences"
+                  className="text-sm text-muted hover:text-foreground transition-colors"
+                >
+                  {t("nav.preferences", lang)}
+                </Link>
                 <LanguageToggle lang={lang} />
                 <ThemeToggle />
               </div>

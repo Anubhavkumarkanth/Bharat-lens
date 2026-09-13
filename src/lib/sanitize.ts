@@ -4,9 +4,10 @@ import { parseHTML } from "linkedom";
  * Allowlist sanitizer for publisher markup.
  *
  * The reader renders this through dangerouslySetInnerHTML, so anything not
- * explicitly permitted here becomes script execution on our origin — with the
- * reader's Supabase session sitting in cookies. Allowlist, never blocklist:
- * an unknown tag is dropped, an unknown attribute is dropped.
+ * explicitly permitted here becomes script execution on our own origin, with
+ * access to the visitor cookie and to whatever else the page can reach.
+ * Allowlist, never blocklist: an unknown tag is dropped, an unknown attribute
+ * is dropped.
  */
 const ALLOWED_TAGS = new Set([
   "p", "br", "hr",

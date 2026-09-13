@@ -6,12 +6,14 @@
 
 export type Scope = "india" | "india-abroad" | "impact-on-india" | "world" | "for-you";
 
-export const SCOPES: { id: Scope; label: string; requiresAuth?: boolean }[] = [
+/** `personal: true` marks the reader's own feed. It is assembled from the other
+ *  scopes, so it must never be listed as a source scope for itself. */
+export const SCOPES: { id: Scope; label: string; personal?: boolean }[] = [
   { id: "india", label: "India" },
   { id: "india-abroad", label: "India Abroad" },
   { id: "impact-on-india", label: "Impact on India" },
   { id: "world", label: "World" },
-  { id: "for-you", label: "For You", requiresAuth: true },
+  { id: "for-you", label: "For You", personal: true },
 ];
 
 export type Category =

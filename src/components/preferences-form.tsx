@@ -4,13 +4,13 @@ import { useActionState } from "react";
 import { updatePreferences, type PreferencesFormState } from "@/app/preferences/actions";
 import { CATEGORIES, SCOPES } from "@/config/taxonomy";
 import { t, type Lang, type UiStringKey } from "@/config/ui-strings";
-import type { UserPreferences } from "@/lib/preferences";
+import type { ReaderPreferences } from "@/lib/preferences";
 import type { RangeOption, SortOption } from "@/lib/query";
 
 const SORTS: SortOption[] = ["newest", "trending", "popular", "oldest"];
 const RANGES: RangeOption[] = ["live", "1d", "week", "month", "past-month", "year"];
 
-export function PreferencesForm({ lang, prefs }: { lang: Lang; prefs: UserPreferences }) {
+export function PreferencesForm({ lang, prefs }: { lang: Lang; prefs: ReaderPreferences }) {
   const [state, formAction, pending] = useActionState<PreferencesFormState, FormData>(
     updatePreferences,
     {}
@@ -42,7 +42,7 @@ export function PreferencesForm({ lang, prefs }: { lang: Lang; prefs: UserPrefer
       <fieldset className="flex flex-col gap-3">
         <legend className="text-sm text-muted mb-2">{t("prefs.scopes", lang)}</legend>
         <div className="flex flex-wrap gap-2">
-          {SCOPES.filter((s) => !s.requiresAuth).map((s) => (
+          {SCOPES.filter((s) => !s.personal).map((s) => (
             <label
               key={s.id}
               className="flex items-center gap-2 border border-border rounded-full px-3 py-1.5 text-sm cursor-pointer has-checked:bg-accent has-checked:text-white has-checked:border-accent"

@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { toggleSave } from "@/app/saved/actions";
-import { setInterest, toggleLike, toggleRepost } from "@/app/article/actions";
+import { setInterest, toggleLike } from "@/app/article/actions";
 import { t, type Lang, type UiStringKey } from "@/config/ui-strings";
 import type { Interest } from "@/lib/reactions";
 
@@ -11,7 +10,6 @@ interface ActionState {
   liked: boolean;
   interest: Interest | null;
   saved: boolean;
-  reposted: boolean;
 }
 
 /** 20px stroke icons, sized to the text they sit beside. */
@@ -20,7 +18,6 @@ const ICONS: Record<string, React.ReactNode> = {
   interested: <path d="M7 21V10m0 0 4-7a2 2 0 0 1 3 2l-1 5h5a2 2 0 0 1 2 2.4l-1.4 7A2 2 0 0 1 16.6 21z" />,
   notInterested: <path d="M17 3v11m0 0-4 7a2 2 0 0 1-3-2l1-5H6a2 2 0 0 1-2-2.4l1.4-7A2 2 0 0 1 7.4 3z" />,
   save: <path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4.5L5 21V4a1 1 0 0 1 1-1z" />,
-  repost: <path d="M4 9V7a2 2 0 0 1 2-2h11m0 0-3-3m3 3-3 3M20 15v2a2 2 0 0 1-2 2H7m0 0 3 3m-3-3 3-3" />,
 };
 
 function ActionButton({
@@ -70,32 +67,25 @@ function ActionButton({
 }
 
 /**
- * One row, five actions, shared by the feed card and the reader page.
+ * One row, four actions, shared by the feed card and the reader page.
  *
- * State flips locally on click and the server action revalidates behind it, so
- * the row never sits wrong during the round trip. Signed-out readers get the
- * same row, but every button routes to sign-in instead of mutating.
+ * Everyone can use them — there are no accounts, so there is no signed-out
+ * state to gate. State flips locally on click and the server action revalidates
+ * behind it, so the row never sits wrong during the round trip.
  */
 export function ArticleActions({
   articleId,
-  signedIn,
   lang,
   initial,
 }: {
   articleId: string;
-  signedIn: boolean;
   lang: Lang;
   initial: ActionState;
 }) {
   const [state, setState] = useState<ActionState>(initial);
   const [pending, startTransition] = useTransition();
-  const router = useRouter();
 
   function act(update: Partial<ActionState>, run: () => Promise<void>) {
-    if (!signedIn) {
-      router.push("/signin");
-      return;
-    }
     setState((prev) => ({ ...prev, ...update }));
     startTransition(() => run());
   }
@@ -143,13 +133,6 @@ export function ArticleActions({
         filled
         pending={pending}
         onClick={() => act({ saved: !state.saved }, () => toggleSave(articleId))}
-      />
-      <ActionButton
-        icon={ICONS.repost}
-        label={label(state.reposted ? "action.reposted" : "action.repost")}
-        active={state.reposted}
-        pending={pending}
-        onClick={() => act({ reposted: !state.reposted }, () => toggleRepost(articleId))}
       />
     </div>
   );

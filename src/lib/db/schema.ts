@@ -68,21 +68,22 @@ export const articleSummaries = pgTable("article_summaries", {
 });
 
 /**
- * Phase 2 — per-user tables.
+ * Per-visitor tables.
  *
- * `userId` is the Supabase `auth.users.id` uuid. There is no foreign key to it:
- * `auth` is Supabase's own schema and drizzle-kit only manages `public`, so a
- * reference here would make `db:push` try to touch a schema it doesn't own.
- * Deleting a user therefore leaves orphan rows — acceptable, and cheap to sweep.
+ * There are no accounts. `visitorId` is a random id minted into a cookie on
+ * first request (src/lib/visitor.ts, assigned by src/proxy.ts) — nobody signs
+ * up, nothing is tied to an email, and we store no personal data at all. The
+ * tradeoff is deliberate: this is per-browser, so a reader's saves do not
+ * follow them to another device and clearing cookies starts them over.
  *
- * Access control is enforced in application code, not RLS. The app connects as
- * the owning role through DATABASE_URL, which bypasses row-level security, so
- * every read and write below filters on the session-verified user id instead.
+ * Because there is no identity to authenticate, there is nothing to
+ * impersonate either — but every query still filters on the cookie's id so one
+ * visitor never sees another's rows.
  */
 
-/** One row per signed-in user, created lazily the first time they save preferences. */
-export const userPreferences = pgTable("user_preferences", {
-  userId: text("user_id").primaryKey(),
+/** One row per visitor, created lazily the first time they save preferences. */
+export const visitorPreferences = pgTable("visitor_preferences", {
+  visitorId: text("visitor_id").primaryKey(),
   categories: text("categories").array().notNull().default(sql`'{}'::text[]`), // Category ids driving the For You feed
   scopes: text("scopes").array().notNull().default(sql`'{}'::text[]`), // Scope ids to draw For You from; empty = all non-personal scopes
   defaultSort: text("default_sort").notNull().default("newest"),
@@ -90,31 +91,31 @@ export const userPreferences = pgTable("user_preferences", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-/** User-created folders for saved articles. A saved article may sit in none of them. */
+/** Visitor-created folders for saved articles. A saved article may sit in none of them. */
 export const collections = pgTable(
   "collections",
   {
     id: text("id").primaryKey(), // uuid
-    userId: text("user_id").notNull(),
+    visitorId: text("visitor_id").notNull(),
     name: text("name").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    index("collections_user_idx").on(t.userId),
-    uniqueIndex("collections_user_name_idx").on(t.userId, t.name),
+    index("collections_visitor_idx").on(t.visitorId),
+    uniqueIndex("collections_visitor_name_idx").on(t.visitorId, t.name),
   ]
 );
 
 /**
  * A saved article, optionally filed in a collection, annotated, and given a
- * due date. `remindAt` is a date the reader chose to come back to it — it
- * surfaces the row in the Due list and nothing else. No email is ever sent.
+ * date the reader chose to come back to it. That date surfaces the row in the
+ * Due list and nothing else — no email is ever sent.
  */
 export const savedArticles = pgTable(
   "saved_articles",
   {
     id: text("id").primaryKey(), // uuid
-    userId: text("user_id").notNull(),
+    visitorId: text("visitor_id").notNull(),
     articleId: text("article_id")
       .notNull()
       .references(() => articles.id),
@@ -125,8 +126,8 @@ export const savedArticles = pgTable(
     savedAt: timestamp("saved_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    uniqueIndex("saved_articles_user_article_idx").on(t.userId, t.articleId),
-    index("saved_articles_user_idx").on(t.userId),
+    uniqueIndex("saved_articles_visitor_article_idx").on(t.visitorId, t.articleId),
+    index("saved_articles_visitor_idx").on(t.visitorId),
     index("saved_articles_remind_at_idx").on(t.remindAt),
   ]
 );
@@ -149,14 +150,14 @@ export const articleContent = pgTable("article_content", {
 });
 
 /**
- * One row per reader per article. `liked` and `interest` are independent: a
+ * One row per visitor per article. `liked` and `interest` are independent: a
  * like is approval of this story, interest is a signal about stories like it,
  * and the For You ranking reads only the latter.
  */
 export const articleReactions = pgTable(
   "article_reactions",
   {
-    userId: text("user_id").notNull(),
+    visitorId: text("visitor_id").notNull(),
     articleId: text("article_id")
       .notNull()
       .references(() => articles.id),
@@ -165,42 +166,7 @@ export const articleReactions = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    primaryKey({ columns: [t.userId, t.articleId] }),
-    index("article_reactions_user_idx").on(t.userId),
-  ]
-);
-
-/** Public identity. A user without a row here simply has no public page. */
-export const profiles = pgTable(
-  "profiles",
-  {
-    userId: text("user_id").primaryKey(),
-    handle: text("handle").notNull(), // the /u/<handle> segment
-    displayName: text("display_name"),
-    bio: text("bio"),
-    // Validated host-side against instagram.com / x.com before insert. These
-    // render as links on a public page, so an unvalidated value is an open redirect.
-    instagramUrl: text("instagram_url"),
-    xUrl: text("x_url"),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [uniqueIndex("profiles_handle_idx").on(t.handle)]
-);
-
-/** A repost is public by definition — it appears on the reposter's profile. */
-export const reposts = pgTable(
-  "reposts",
-  {
-    id: text("id").primaryKey(), // uuid
-    userId: text("user_id").notNull(),
-    articleId: text("article_id")
-      .notNull()
-      .references(() => articles.id),
-    comment: text("comment"),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [
-    uniqueIndex("reposts_user_article_idx").on(t.userId, t.articleId),
-    index("reposts_user_idx").on(t.userId),
+    primaryKey({ columns: [t.visitorId, t.articleId] }),
+    index("article_reactions_visitor_idx").on(t.visitorId),
   ]
 );

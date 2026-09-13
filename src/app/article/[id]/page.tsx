@@ -2,10 +2,9 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getArticleDetail } from "@/lib/article";
 import { leadIn, readingMinutes, sanitizeArticleHtml } from "@/lib/sanitize";
-import { getCurrentUser } from "@/lib/auth";
+import { getVisitorId } from "@/lib/visitor";
 import { getReactionsFor, NO_REACTION } from "@/lib/reactions";
 import { getSavedArticleIds } from "@/lib/saved";
-import { getRepostedArticleIds } from "@/lib/profiles";
 import { getOrTranslateSummary } from "@/lib/translate";
 import { getLang } from "@/lib/lang";
 import { t, type UiStringKey } from "@/config/ui-strings";
@@ -33,12 +32,11 @@ export default async function ArticlePage(props: PageProps<"/article/[id]">) {
   if (!article) notFound();
 
   const lang = await getLang();
-  const user = await getCurrentUser();
+  const visitorId = await getVisitorId();
 
-  const [reactions, savedIds, repostedIds] = await Promise.all([
-    user ? getReactionsFor(user.id, [article.id]) : Promise.resolve(new Map()),
-    user ? getSavedArticleIds(user.id) : Promise.resolve(new Set<string>()),
-    user ? getRepostedArticleIds(user.id) : Promise.resolve(new Set<string>()),
+  const [reactions, savedIds] = await Promise.all([
+    visitorId ? getReactionsFor(visitorId, [article.id]) : Promise.resolve(new Map()),
+    visitorId ? getSavedArticleIds(visitorId) : Promise.resolve(new Set<string>()),
   ]);
   const reaction = reactions.get(article.id) ?? NO_REACTION;
 
@@ -82,13 +80,11 @@ export default async function ArticlePage(props: PageProps<"/article/[id]">) {
       <div className="mb-8 pb-6 border-b border-border">
         <ArticleActions
           articleId={article.id}
-          signedIn={Boolean(user)}
           lang={lang}
           initial={{
             liked: reaction.liked,
             interest: reaction.interest,
             saved: savedIds.has(article.id),
-            reposted: repostedIds.has(article.id),
           }}
         />
       </div>

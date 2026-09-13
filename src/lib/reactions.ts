@@ -14,7 +14,7 @@ export const NO_REACTION: Reaction = { liked: false, interest: null };
 
 /** Reactions for exactly the articles on screen — one query for the whole feed. */
 export async function getReactionsFor(
-  userId: string,
+  visitorId: string,
   articleIds: string[]
 ): Promise<Map<string, Reaction>> {
   if (articleIds.length === 0) return new Map();
@@ -27,7 +27,7 @@ export async function getReactionsFor(
     })
     .from(articleReactions)
     .where(
-      and(eq(articleReactions.userId, userId), inArray(articleReactions.articleId, articleIds))
+      and(eq(articleReactions.visitorId, visitorId), inArray(articleReactions.articleId, articleIds))
     );
 
   return new Map(
@@ -48,7 +48,7 @@ export interface InterestProfile {
  * more: one rejected cricket piece shouldn't cost the reader the whole category.
  * "Interested" is the softer signal and lifts its category and outlet.
  */
-export async function getInterestProfile(userId: string): Promise<InterestProfile> {
+export async function getInterestProfile(visitorId: string): Promise<InterestProfile> {
   const rows = await db
     .select({
       articleId: articleReactions.articleId,
@@ -58,7 +58,7 @@ export async function getInterestProfile(userId: string): Promise<InterestProfil
     })
     .from(articleReactions)
     .innerJoin(articles, eq(articleReactions.articleId, articles.id))
-    .where(eq(articleReactions.userId, userId));
+    .where(eq(articleReactions.visitorId, visitorId));
 
   const profile: InterestProfile = {
     excludedArticleIds: [],

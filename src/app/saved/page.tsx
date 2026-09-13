@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth";
+import { getVisitorId } from "@/lib/visitor";
 import { listCollections, listSaved, type SavedView } from "@/lib/saved";
 import { deleteCollection } from "@/app/saved/actions";
 import { getLang } from "@/lib/lang";
@@ -14,18 +13,21 @@ const VIEWS: SavedView[] = ["active", "due", "archived"];
 
 export default async function SavedPage(props: PageProps<"/saved">) {
   const lang = await getLang();
-  const user = await getCurrentUser();
-  if (!user) redirect("/signin");
+  const visitorId = await getVisitorId();
 
   const searchParams = await props.searchParams;
   const rawView = typeof searchParams.view === "string" ? searchParams.view : "active";
   const view: SavedView = VIEWS.includes(rawView as SavedView) ? (rawView as SavedView) : "active";
   const collectionId = typeof searchParams.collection === "string" ? searchParams.collection : undefined;
 
-  const [collections, items] = await Promise.all([
-    listCollections(user.id),
-    listSaved(user.id, { view, collectionId }),
-  ]);
+  // No sign-in gate any more: with no cookie there is nothing saved yet, which
+  // is the same empty state as a reader who hasn't saved anything.
+  const [collections, items] = visitorId
+    ? await Promise.all([
+        listCollections(visitorId),
+        listSaved(visitorId, { view, collectionId }),
+      ])
+    : [[], []];
 
   function href(next: { view?: SavedView; collection?: string }) {
     const params = new URLSearchParams();
@@ -37,13 +39,17 @@ export default async function SavedPage(props: PageProps<"/saved">) {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="font-serif text-2xl">{t("saved.title", lang)}</h1>
+      <div>
+        <h1 className="font-serif text-3xl">{t("saved.title", lang)}</h1>
+        <p className="text-sm text-muted mt-1">{t("prefs.localNote", lang)}</p>
+      </div>
 
       <nav className="flex gap-1 border-b border-border">
         {VIEWS.map((v) => (
           <Link
             key={v}
             href={href({ view: v })}
+            aria-current={v === view ? "page" : undefined}
             className={`px-4 py-2 text-sm border-b-2 transition-colors ${
               v === view
                 ? "border-accent text-foreground font-medium"
@@ -59,8 +65,10 @@ export default async function SavedPage(props: PageProps<"/saved">) {
         <div className="flex flex-wrap gap-2 items-center">
           <Link
             href={href({ collection: undefined })}
-            className={`px-3 py-1.5 rounded-full text-sm border ${
-              !collectionId ? "bg-accent text-white border-accent" : "border-border text-muted hover:text-foreground"
+            className={`px-3.5 py-1.5 rounded-full text-sm border transition-all duration-200 ${
+              !collectionId
+                ? "bg-accent text-white border-accent shadow-card"
+                : "border-border text-muted hover:text-foreground hover:border-border-strong"
             }`}
           >
             {t("saved.all", lang)}
@@ -68,9 +76,9 @@ export default async function SavedPage(props: PageProps<"/saved">) {
           {collections.map((c) => (
             <span
               key={c.id}
-              className={`inline-flex items-center gap-2 pl-3 pr-2 py-1.5 rounded-full text-sm border ${
+              className={`inline-flex items-center gap-2 pl-3.5 pr-2 py-1.5 rounded-full text-sm border ${
                 collectionId === c.id
-                  ? "bg-accent text-white border-accent"
+                  ? "bg-accent text-white border-accent shadow-card"
                   : "border-border text-muted"
               }`}
             >
@@ -100,12 +108,7 @@ export default async function SavedPage(props: PageProps<"/saved">) {
       ) : (
         <div className="flex flex-col gap-4">
           {items.map((item) => (
-            <SavedItemCard
-              key={item.id}
-              item={item}
-              collections={collections}
-              lang={lang}
-            />
+            <SavedItemCard key={item.id} item={item} collections={collections} lang={lang} />
           ))}
         </div>
       )}

@@ -30,27 +30,27 @@ export interface SavedItem {
  * Which of the currently displayed articles this reader has already saved, so
  * the card can render Save vs Saved without a query per card.
  */
-export async function getSavedArticleIds(userId: string): Promise<Set<string>> {
+export async function getSavedArticleIds(visitorId: string): Promise<Set<string>> {
   const rows = await db
     .select({ articleId: savedArticles.articleId })
     .from(savedArticles)
-    .where(eq(savedArticles.userId, userId));
+    .where(eq(savedArticles.visitorId, visitorId));
   return new Set(rows.map((r) => r.articleId));
 }
 
-export async function listCollections(userId: string): Promise<Collection[]> {
+export async function listCollections(visitorId: string): Promise<Collection[]> {
   return db
     .select({ id: collections.id, name: collections.name })
     .from(collections)
-    .where(eq(collections.userId, userId))
+    .where(eq(collections.visitorId, visitorId))
     .orderBy(asc(collections.name));
 }
 
 export async function listSaved(
-  userId: string,
+  visitorId: string,
   opts: { view: SavedView; collectionId?: string }
 ): Promise<SavedItem[]> {
-  const conditions = [eq(savedArticles.userId, userId)];
+  const conditions = [eq(savedArticles.visitorId, visitorId)];
 
   if (opts.view === "archived") conditions.push(isNotNull(savedArticles.archivedAt));
   else conditions.push(isNull(savedArticles.archivedAt));
