@@ -7,9 +7,16 @@ chrome --headless=new --hide-scrollbars --window-size=1440,1100 \
   --screenshot=docs/screenshots/feed.png http://localhost:3000/india
 ```
 
-Worth adding by hand, because they need state a headless run does not have:
+`hindi.png` uses the URL override rather than the toggle, since a headless run
+has no cookie to toggle:
 
-- `saved.png` — the Saved page with a collection, a note and a date filled in
-- `hindi.png` — any feed with the language set to हिं, which shows the bilingual work
+```bash
+chrome --headless=new --hide-scrollbars --window-size=1440,1100   --screenshot=docs/screenshots/hindi.png "http://localhost:3000/india?lang=hi"
+```
 
-Take those with the window maximised and crop out browser chrome.
+Still worth adding by hand, because it needs state a headless run cannot reach:
+
+- `saved.png` — the Saved page with a collection, a note and a date filled in.
+  Save a couple of stories in a real browser first, then screenshot /saved.
+
+Take that one with the window maximised and crop out browser chrome.

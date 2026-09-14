@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { VISITOR_COOKIE, isValidVisitorId } from "@/lib/visitor-constants";
+import { LANG_COOKIE } from "@/lib/lang-constants";
 
 const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
 
@@ -23,6 +24,21 @@ export function proxy(request: NextRequest) {
   if (needsId) request.cookies.set(VISITOR_COOKIE, visitorId);
 
   const response = NextResponse.next({ request });
+
+  // ?lang=hi makes the language shareable. The toggle writes a cookie from the
+  // browser, which the server cannot see on a first visit — so sending someone a
+  // Hindi article link used to hand them an English page. The layout reads the
+  // language and layouts get no searchParams, so the override has to be turned
+  // into a cookie here, before anything renders.
+  const requested = request.nextUrl.searchParams.get("lang");
+  if (requested === "hi" || requested === "en") {
+    request.cookies.set(LANG_COOKIE, requested);
+    response.cookies.set(LANG_COOKIE, requested, {
+      sameSite: "lax",
+      path: "/",
+      maxAge: ONE_YEAR_SECONDS,
+    });
+  }
 
   if (needsId) {
     response.cookies.set(VISITOR_COOKIE, visitorId, {

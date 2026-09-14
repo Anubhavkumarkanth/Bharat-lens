@@ -1,6 +1,6 @@
 import { db } from "@/lib/db/client";
 import { articles, sources, storyClusters } from "@/lib/db/schema";
-import { and, eq, gte } from "drizzle-orm";
+import { eq, gte } from "drizzle-orm";
 import { SOURCES, type SourceConfig } from "@/config/sources";
 import { discoverFeed } from "./discovery";
 import { fetchText } from "./http";

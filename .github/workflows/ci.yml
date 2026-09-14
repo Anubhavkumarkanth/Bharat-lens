@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Classifier assertions
+        run: npm run test:classify
+
+      # No DATABASE_URL is set on purpose. The DB client is constructed lazily
+      # precisely so the build does not need one, and the app is meant to build
+      # with no keys at all — if that ever stops being true, this job catches it.
+      - name: Build
+        run: npm run build

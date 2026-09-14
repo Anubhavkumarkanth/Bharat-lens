@@ -23,6 +23,10 @@ hand-off to the source.
 
 ![Search results](docs/screenshots/search.png)
 
+**In Hindi** — every string, including the filters and the action row.
+
+![Hindi interface](docs/screenshots/hindi.png)
+
 </details>
 
 ## Why I built it
@@ -54,7 +58,8 @@ So I wanted three specific things:
   **Print and wire only — no television news**
 - **One card per story**, listing every outlet that ran it
 - **Two-sentence summaries** grounded strictly in the fetched article text
-- **English and Hindi**, with translations cached so each one is paid for once
+- **English and Hindi**, with translations cached so each one is paid for once.
+  `?lang=hi` on any URL makes the choice shareable
 - **A clean in-app reader**, or straight to the publisher — your choice per story
 - **Like, interested, not interested, save** — with collections, notes and a
   come-back-to-it date
