@@ -7,8 +7,6 @@ Hindi.
 
 No sign-up. No account. Nothing personal stored.
 
-> **Status:** running locally, not yet deployed.
-
 ![The India feed](docs/screenshots/feed.png)
 
 <details>
@@ -164,16 +162,6 @@ I would rather list these than have you find them.
 - **Saves are per-browser.** That is the cost of having no accounts.
 - **The cron runs once a day on Vercel's free plan**, which caps cron frequency at
   daily. More often needs an external scheduler hitting the endpoint.
-
-## Roadmap
-
-- **Done** — scopes and categories, discovery cascade, deterministic ranking, grounded
-  summaries with caching, sort and time filters, English/Hindi, in-app reader,
-  reactions, saved articles with collections and notes, For You, month timeline
-- **Next** — search (there is no way to find a story yet), News vs Opinion as a
-  filter, cross-source comparison view, share images per article
-- **Maybe** — AI classification of the general bucket, offline reading for saved
-  articles
 
 ## License
 
