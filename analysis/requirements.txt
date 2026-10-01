@@ -1,0 +1,10 @@
+# Analysis dependencies. Python 3.11+.
+#   pip install -r analysis/requirements.txt
+# For the notebook, also: pip install jupyterlab
+pandas>=2.2
+numpy>=1.26
+scipy>=1.11
+matplotlib>=3.8
+SQLAlchemy>=2.0
+psycopg2-binary>=2.9
+pytest>=8
