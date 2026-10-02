@@ -20,7 +20,7 @@ function looksLikeXmlFeed(body: string): boolean {
 async function tryHeadMetadata(homepage: string): Promise<DiscoveryResult | null> {
   const html = await fetchText(homepage);
   if (!html) return null;
-  // Look only at the first chunk — <head> is always near the top, and homepages can be large.
+  // only need the start of the page for <head>
   const head = html.slice(0, 20000);
   const linkRegex =
     /<link[^>]+type=["'](application\/rss\+xml|application\/atom\+xml)["'][^>]*>/gi;
@@ -36,8 +36,7 @@ async function tryHeadMetadata(homepage: string): Promise<DiscoveryResult | null
     }
   }
 
-  // A declared feed link can still serve HTML (e.g. ThePrint's /web-stories/feed/),
-  // so verify each candidate actually returns a feed before accepting it.
+  // some feed links return HTML (e.g. ThePrint's /web-stories/feed/), so check each one
   for (const feedUrl of candidates) {
     const body = await fetchText(feedUrl);
     if (body && looksLikeXmlFeed(body)) {
@@ -61,9 +60,7 @@ async function tryCommonPaths(homepage: string): Promise<DiscoveryResult | null>
 async function trySitemap(homepage: string): Promise<DiscoveryResult | null> {
   const robots = await fetchRobots(homepage);
   if (robots.sitemaps.length === 0) return null;
-  // Prefer a news-specific sitemap when one is advertised — it's already recency-bounded.
-  // Match on the URL *path* only: a hostname like "ptinews.com" would otherwise make
-  // every sitemap on the domain look news-specific.
+  // Prefer a news sitemap. Only check the path, since "ptinews.com" contains "news".
   const newsSitemap = robots.sitemaps.find((s) => {
     try {
       return /news/i.test(new URL(s).pathname);
@@ -75,11 +72,8 @@ async function trySitemap(homepage: string): Promise<DiscoveryResult | null> {
   return { feedUrl: chosen, method: "sitemap", type: "sitemap" };
 }
 
-/**
- * Feed discovery cascade: explicit override -> <head> metadata -> common
- * RSS paths -> sitemap via robots.txt. A blocked/failed step never stops
- * the cascade; it just falls through to the next strategy.
- */
+// Finds a feed: config URL, then <head> links, then common RSS paths, then
+// sitemaps from robots.txt. If one step fails it tries the next.
 export async function discoverFeed(source: SourceConfig): Promise<DiscoveryResult | null> {
   if (source.feedUrl) {
     return { feedUrl: source.feedUrl, method: "explicit", type: "rss" };

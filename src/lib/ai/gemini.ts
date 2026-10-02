@@ -1,20 +1,15 @@
 import type { AiProvider, SummarizeInput } from "./provider";
 
 const MODEL = process.env.GEMINI_MODEL || "gemini-3.8-flash";
-const MAX_SOURCE_CHARS = 12000; // keep grounding text bounded, same budget as the Anthropic path
+const MAX_SOURCE_CHARS = 12000; // same limit as the Anthropic provider
 const ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models";
 
 interface GeminiCandidate {
   content?: { parts?: { text?: string }[] };
 }
 
-/**
- * Google AI Studio has a genuine free tier, which is why this is the default
- * provider — Bharat Lens has to run at zero cost. The interface is identical to
- * the Anthropic path, so every grounding rule in CLAUDE.md applies unchanged:
- * only the fetched article text is ever sent, and any failure returns null so
- * the caller falls back to headline + source link.
- */
+// Gemini (default because Google AI Studio has a free tier). Same rules as the
+// other provider: only article text is sent, and failures return null.
 export class GeminiProvider implements AiProvider {
   private async generate(
     system: string,
@@ -37,8 +32,7 @@ export class GeminiProvider implements AiProvider {
       if (!res.ok) return null;
 
       const data = (await res.json()) as { candidates?: GeminiCandidate[] };
-      // No candidate means a safety block or an empty generation — both are
-      // "no summary", never a reason to fabricate one.
+      // blocked or empty response = no summary
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
       return text ? text.trim() : null;
     } catch {
@@ -82,7 +76,7 @@ export class GeminiProvider implements AiProvider {
     if (!raw) return null;
 
     try {
-      // Gemini often wraps JSON in a markdown fence even when told not to.
+      // strip markdown code fences around the JSON
       const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
       const ids = JSON.parse(cleaned);
       return Array.isArray(ids) ? (ids as string[]) : null;

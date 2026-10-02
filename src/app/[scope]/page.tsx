@@ -14,8 +14,7 @@ import { FilterBar } from "@/components/filter-bar";
 import { MonthTimeline } from "@/components/month-timeline";
 import { ArticleCard } from "@/components/article-card";
 
-// News content is live/DB-backed and refreshed by the ingestion cron, never
-// prebuilt at deploy time — see stack notes in CLAUDE.md.
+// Reads from the DB on every request, nothing is prebuilt.
 export const dynamic = "force-dynamic";
 
 function Notice({ children }: { children: React.ReactNode }) {
@@ -38,14 +37,13 @@ export default async function ScopePage(props: PageProps<"/[scope]">) {
   const prefs = visitorId ? await getPreferences(visitorId) : DEFAULT_PREFERENCES;
 
   const category = typeof searchParams.category === "string" ? (searchParams.category as Category) : undefined;
-  // An explicit URL choice always wins; otherwise the reader gets the sort and
-  // range saved against their cookie, and a brand-new visitor the app defaults.
+  // URL params first, then saved preferences, then defaults
   const sort = (typeof searchParams.sort === "string" ? searchParams.sort : prefs.defaultSort) as SortOption;
   const range = (typeof searchParams.range === "string" ? searchParams.range : prefs.defaultRange) as RangeOption;
   const day = typeof searchParams.day === "string" ? searchParams.day : undefined;
   const page = Math.max(1, Number(searchParams.page) || 1);
 
-  // For You needs categories to build from; it is open to everyone otherwise.
+  // For You needs at least one category
   if (scopeConfig.personal && prefs.categories.length === 0) {
     return (
       <Notice>
@@ -59,8 +57,7 @@ export default async function ScopePage(props: PageProps<"/[scope]">) {
 
   const interest = visitorId ? await getInterestProfile(visitorId) : null;
 
-  // The scopes this page draws from — the timeline has to measure the same pool
-  // the feed does, or a marked day wouldn't match what clicking it shows.
+  // the timeline uses the same scopes as the feed
   const feedScopes = scopeConfig.personal
     ? prefs.scopes.length > 0
       ? prefs.scopes
@@ -69,8 +66,7 @@ export default async function ScopePage(props: PageProps<"/[scope]">) {
 
   const timeline = await getMonthTimeline(feedScopes, currentMonthStartUtc());
 
-  // For You is the same deterministic pipeline as every other feed, just pointed
-  // at the reader's chosen scopes and categories — no AI, so it works with no keys.
+  // For You is the normal feed query with the reader's scopes and categories
   let stories = scopeConfig.personal
     ? await queryArticles({
         scope: feedScopes,
@@ -83,9 +79,8 @@ export default async function ScopePage(props: PageProps<"/[scope]">) {
       })
     : await queryArticles({ scope: scope as Scope, category, sort, range, day, page });
 
-  // Stories from a category or outlet they marked "interested" float to the top
-  // of the day's queue. Stable partition, so the chosen sort still holds within
-  // each half — this reorders the selection rather than replacing the ranking.
+  // Move "interested" categories/outlets to the top, keeping the sort order
+  // within each group.
   if (scopeConfig.personal && interest) {
     const boosted = (s: (typeof stories)[number]) =>
       interest.boostedCategories.has(s.category) || interest.boostedSources.has(s.sourceId);
@@ -102,10 +97,10 @@ export default async function ScopePage(props: PageProps<"/[scope]">) {
       : Promise.resolve(new Map()),
   ]);
 
-  // One clock reading for every card on the page.
+  // same "now" for every card
   const now = requestNow();
 
-  /** Current query string with the given keys replaced, or removed when null. */
+  // current query string with some keys changed (null removes)
   function withParams(changes: Record<string, string | null>): string {
     const params = new URLSearchParams();
     if (category) params.set("category", category);
@@ -126,9 +121,7 @@ export default async function ScopePage(props: PageProps<"/[scope]">) {
       <MonthTimeline days={timeline} lang={lang} today={todayUtcDate()} activeDay={day} />
       <FilterBar lang={lang} sort={sort} range={range} />
       {stories.length === 0 ? (
-        // A dead-end empty state is the worst thing a reader can hit, and with a
-        // once-a-day cron the default 24h window is empty more often than not.
-        // Offer the filters that are actually narrowing it, widest-first.
+        // With a daily cron the 1 day view is often empty, so offer ways to widen it
         <Notice>
           <p>{t("state.empty", lang)}</p>
           <div className="flex flex-wrap gap-3 justify-center text-sm">
@@ -153,8 +146,7 @@ export default async function ScopePage(props: PageProps<"/[scope]">) {
           </div>
         </Notice>
       ) : (
-        // Two columns from lg up: a single narrow column in a wide window is
-        // what made the feed look empty.
+        // two columns on large screens
         <div className="grid gap-5 lg:grid-cols-2 items-start">
           {stories.map((story, index) => (
             <ArticleCard
@@ -170,9 +162,7 @@ export default async function ScopePage(props: PageProps<"/[scope]">) {
         </div>
       )}
 
-      {/* A full page means there is probably another one. Cheaper and honest
-          enough for a feed — a count query over the whole corpus to decide
-          whether to show one link is not worth it. */}
+      {/* Show "more" if this page is full. Not worth a count query. */}
       {stories.length > 0 && (page > 1 || stories.length === PAGE_SIZE) && (
         <nav className="flex items-center justify-between gap-4 mt-10 pt-6 border-t border-border text-sm">
           {page > 1 ? (

@@ -4,11 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { t, type Lang } from "@/config/ui-strings";
 
-/**
- * Header search. A plain form so it works before hydration and so Enter
- * submits, with the current query pre-filled when the reader is already on the
- * results page.
- */
+// Search box in the header. A plain form, so it works without JS.
 export function SearchBox({ lang }: { lang: Lang }) {
   const router = useRouter();
   const searchParams = useSearchParams();

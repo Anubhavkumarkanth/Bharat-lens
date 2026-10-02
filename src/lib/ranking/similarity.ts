@@ -23,5 +23,5 @@ export function jaccardSimilarity(a: Set<string>, b: Set<string>): number {
   return union === 0 ? 0 : intersection / union;
 }
 
-/** Same-story threshold for cross-source clustering — tuned conservative to avoid merging distinct stories. */
+// Similarity needed to count as the same story. Kept high so different stories don't merge.
 export const SAME_STORY_THRESHOLD = 0.45;

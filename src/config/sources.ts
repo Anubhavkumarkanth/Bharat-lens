@@ -1,15 +1,9 @@
-/**
- * Editable source list. The ingestion pipeline never hardcodes a source —
- * it only reads this file. Add/remove/reprioritize sources here.
- *
- * `feedUrl` is an explicit override (cascade step 1). Leave it unset to let
- * the discovery cascade find a feed via <head> metadata, common paths, or
- * sitemaps — see src/lib/ingestion/discovery.ts.
- *
- * Verified 2026-09-06 (see project notes): PTI, ANI, Reuters, AP, and
- * The Print expose no public RSS and must go through sitemap discovery.
- * Scroll's feed lives on Feedburner, not on scroll.in itself.
- */
+// All news sources. Ingestion only reads this list.
+//
+// feedUrl is optional. Without it, discovery.ts looks for a feed in <head>,
+// common paths, then sitemaps. As of 2026-09-06, PTI, ANI, Reuters, AP and
+// The Print have no public RSS and come in through sitemaps. Scroll's feed is
+// on Feedburner.
 
 export type SourceCountry = "IN" | "GLOBAL";
 export type SourceKind = "wire" | "newspaper";
@@ -20,31 +14,22 @@ export interface SourceConfig {
   homepage: string;
   country: SourceCountry;
   kind: SourceKind;
-  /** Explicit feed URL, skips discovery. Omit to rely on the cascade. */
+  /** Feed URL. Leave out to use discovery. */
   feedUrl?: string;
-  /** Higher = trusted more in deterministic ranking and dedup tie-breaks. */
+  /** Higher = preferred in ranking and when picking a cluster's main article. */
   priority: number;
   /**
-   * Whether the in-app reader may render this source's FULL article text.
-   *
-   * Deliberately false (omitted) for every source shipped here. Full text is
-   * stored for all of them — extraction already runs to ground summaries — but
-   * storing is not publishing. None of these outlets grants republication
-   * rights: wires (PTI, ANI, Reuters, AP, AFP, Bloomberg) enforce hardest, and
-   * the papers and broadcasters all prohibit it in their terms too.
-   *
-   * Set this to true only for a source you have written permission or a licence
-   * for, or your own publication. Everything left false renders a lead-in plus
-   * the summary, then hands the reader to the publisher — see /article/[id].
+   * Can the reader show the full article? Off for every source, since none of
+   * them allow republishing. Only turn on with written permission. When off,
+   * the reader shows the opening and links to the publisher.
    */
   fullTextOk?: boolean;
 }
 
 export const SOURCES: SourceConfig[] = [
   // --- Wire services ---
-  // PTI's news sitemap index has been stale since 2026-08-26 and their main sitemap is a
-  // static 2023 site map, so this yields nothing today. Kept configured deliberately: it
-  // costs one request per run and starts working again the moment PTI resumes publishing.
+  // PTI's sitemap went stale on 2026-08-26 and came back on 2026-09-13. Keep it
+  // even when it returns nothing, it only costs one request.
   { id: "pti", name: "PTI", homepage: "https://www.ptinews.com", country: "IN", kind: "wire", priority: 9 },
   { id: "ani", name: "ANI", homepage: "https://www.aninews.in", country: "IN", kind: "wire", priority: 9 },
   { id: "reuters", name: "Reuters", homepage: "https://www.reuters.com", country: "GLOBAL", kind: "wire", priority: 10 },
@@ -67,9 +52,8 @@ export const SOURCES: SourceConfig[] = [
   { id: "bloomberg", name: "Bloomberg", homepage: "https://www.bloomberg.com", country: "GLOBAL", kind: "newspaper", feedUrl: "https://feeds.bloomberg.com/markets/news.rss", priority: 7 },
   { id: "al-jazeera", name: "Al Jazeera", homepage: "https://www.aljazeera.com", country: "GLOBAL", kind: "newspaper", feedUrl: "https://www.aljazeera.com/xml/rss/all.xml", priority: 7 },
 
-  // --- Indian print & digital, added to widen coverage ---
-  // Most are left without an explicit feedUrl on purpose: the discovery cascade
-  // finds them, and a wrong hardcoded URL is worse than no URL at all.
+  // --- More Indian outlets ---
+  // Most have no feedUrl and go through discovery.
   { id: "times-of-india", name: "Times of India", homepage: "https://timesofindia.indiatimes.com", country: "IN", kind: "newspaper", feedUrl: "https://timesofindia.indiatimes.com/rssfeedstopstories.cms", priority: 7 },
   { id: "new-indian-express", name: "New Indian Express", homepage: "https://www.newindianexpress.com", country: "IN", kind: "newspaper", priority: 6 },
   { id: "telegraph-india", name: "The Telegraph India", homepage: "https://www.telegraphindia.com", country: "IN", kind: "newspaper", priority: 6 },
@@ -83,8 +67,7 @@ export const SOURCES: SourceConfig[] = [
   { id: "businessline", name: "The Hindu BusinessLine", homepage: "https://www.thehindubusinessline.com", country: "IN", kind: "newspaper", priority: 6 },
   { id: "outlook-india", name: "Outlook India", homepage: "https://www.outlookindia.com", country: "IN", kind: "newspaper", priority: 5 },
 
-  // --- Global print & wire, for World and Impact-on-India ---
-  // Broadcasters are deliberately absent: rule 7 is print and wire only.
+  // --- More international outlets (print and wire only, no TV) ---
   { id: "nikkei-asia", name: "Nikkei Asia", homepage: "https://asia.nikkei.com", country: "GLOBAL", kind: "newspaper", priority: 7 },
   { id: "scmp", name: "South China Morning Post", homepage: "https://www.scmp.com", country: "GLOBAL", kind: "newspaper", priority: 6 },
   { id: "straits-times", name: "The Straits Times", homepage: "https://www.straitstimes.com", country: "GLOBAL", kind: "newspaper", priority: 6 },

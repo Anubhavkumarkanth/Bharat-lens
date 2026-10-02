@@ -3,11 +3,7 @@ import { articleSummaries } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { getAiProvider } from "@/lib/ai/provider";
 
-/**
- * Lazy, cache-once Hindi translation: only called when a viewer in Hindi
- * mode actually requests this article, and only ever runs the AI call once
- * per article — subsequent requests are served from article_summaries.summary_hi.
- */
+// Hindi translation, done the first time someone needs it and then cached in summary_hi.
 export async function getOrTranslateSummary(articleId: string): Promise<string | null> {
   const [row] = await db
     .select()
@@ -15,7 +11,7 @@ export async function getOrTranslateSummary(articleId: string): Promise<string |
     .where(eq(articleSummaries.articleId, articleId))
     .limit(1);
 
-  if (!row?.summaryEn) return null; // nothing grounded to translate
+  if (!row?.summaryEn) return null; // no summary to translate
   if (row.summaryHi) return row.summaryHi;
 
   const ai = getAiProvider();

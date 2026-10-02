@@ -4,12 +4,8 @@ import * as schema from "./schema";
 
 let instance: PostgresJsDatabase<typeof schema> | null = null;
 
-/**
- * Lazily creates the DB connection on first query rather than at module
- * import time — Next.js evaluates route modules during build-time page-data
- * collection even for force-dynamic routes, so throwing eagerly here would
- * break `next build` whenever DATABASE_URL isn't set at build time.
- */
+// Connects on the first query, not on import. Next loads route modules during
+// the build, and the build shouldn't need DATABASE_URL.
 function getDb(): PostgresJsDatabase<typeof schema> {
   if (instance) return instance;
   const connectionString = process.env.DATABASE_URL;

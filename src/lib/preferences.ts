@@ -6,7 +6,7 @@ import type { RangeOption, SortOption } from "@/lib/query";
 
 export interface ReaderPreferences {
   categories: Category[];
-  scopes: Scope[]; // empty = every non-personal scope
+  scopes: Scope[]; // empty = all
   defaultSort: SortOption;
   defaultRange: RangeOption;
 }
@@ -21,14 +21,10 @@ export const DEFAULT_PREFERENCES: ReaderPreferences = {
 const SORTS: SortOption[] = ["newest", "trending", "popular", "oldest"];
 const RANGES: RangeOption[] = ["live", "1d", "week", "month", "past-month", "year"];
 
-/** Scopes a personalized feed may draw from — everything except the personal feed itself. */
+// Scopes For You can use (all except For You itself).
 export const SOURCE_SCOPES: Scope[] = SCOPES.filter((s) => !s.personal).map((s) => s.id);
 
-/**
- * Stored ids are validated against the taxonomy on the way out, not just on the
- * way in: a category renamed or dropped from config would otherwise keep
- * filtering a feed by a value nothing can match.
- */
+// Drop stored ids that no longer exist in the taxonomy.
 function validCategories(values: string[]): Category[] {
   const known = new Set(CATEGORIES.map((c) => c.id as string));
   return values.filter((v) => known.has(v)) as Category[];

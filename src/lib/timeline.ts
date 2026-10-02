@@ -4,23 +4,17 @@ import { getAiProvider } from "@/lib/ai/provider";
 import type { Scope } from "@/config/taxonomy";
 
 export interface TimelineDay {
-  /** YYYY-MM-DD, the value the feed filters on. */
+  /** YYYY-MM-DD */
   date: string;
   count: number;
-  /** Distinct outlets covering that day's most-corroborated story. */
+  /** Outlets covering that day's most widely covered story. */
   sourceCount: number;
   headline: string | null;
   special: boolean;
 }
 
-/**
- * A day is only special if several *different* outlets covered the same story.
- *
- * That is the whole anti-noise mechanism, and it needs no AI: a bot farm, a
- * scraper loop, or one outlet spamming a tag all produce volume from one or two
- * origins, while a real event gets picked up across the wire. Volume alone would
- * mark every slow news day where one publisher went heavy on listicles.
- */
+// A day only counts as a big news day if at least 3 different outlets covered
+// the same story. Volume alone would flag days where one outlet posted a lot.
 const MIN_SOURCES_FOR_EVENT = 3;
 const VOLUME_MULTIPLIER = 1.25;
 
@@ -37,30 +31,25 @@ export async function getMonthTimeline(
 ): Promise<TimelineDay[]> {
   if (scopes.length === 0) return [];
 
-  // UTC throughout: a local-time month end lands 5.5h early in IST and silently
-  // drops the last evening of the month.
+  // UTC, local time would cut off the last evening of the month in IST
   const monthEnd = new Date(
     Date.UTC(monthStart.getUTCFullYear(), monthStart.getUTCMonth() + 1, 1)
   );
 
-  // drizzle's sql template expands a JS array into separate placeholders rather
-  // than one array parameter, so `= ANY(${scopes})` fails with "requires array
-  // on right side". Build the IN list explicitly instead.
+  // drizzle turns arrays into separate params, so ANY() doesn't work. Build an IN list.
   const scopeList = sql.join(
     scopes.map((s) => sql`${s}`),
     sql`, `
   );
 
-  // Aggregated in SQL rather than pulled into JS — a busy month is tens of
-  // thousands of rows and only one number per day survives.
+  // aggregate in SQL, there can be tens of thousands of rows
   const rows = (await db.execute(sql`
     WITH day_clusters AS (
       SELECT (discovered_at AT TIME ZONE 'UTC')::date AS day,
              cluster_id,
              COUNT(DISTINCT source_id) AS source_count
       FROM articles
-      -- ISO strings, not Date objects: drizzle's raw-SQL path hands params
-      -- straight to postgres-js, which only serializes strings and buffers.
+      -- ISO strings, postgres-js can't take Date params here
       WHERE discovered_at >= ${monthStart.toISOString()}::timestamptz
         AND discovered_at < ${monthEnd.toISOString()}::timestamptz
         AND scope IN (${scopeList})
@@ -88,8 +77,7 @@ export async function getMonthTimeline(
 
   if (rows.length === 0) return [];
 
-  // Median, not mean: one enormous day would drag a mean up and hide every
-  // other spike in the month behind it.
+  // median, so one huge day doesn't hide the others
   const sorted = [...rows].map((r) => r.total).sort((a, b) => a - b);
   const median = sorted[Math.floor(sorted.length / 2)] || 0;
 
@@ -104,11 +92,8 @@ export async function getMonthTimeline(
   return verifyWithAi(days);
 }
 
-/**
- * Optional second pass. With a provider configured, the model drops days whose
- * headline is filler that happened to be syndicated widely. With no key — the
- * default — the deterministic result stands unchanged, per rule 1.
- */
+// Optional: with an AI key, drop days where the top story is just widely
+// syndicated filler. Without a key the result stays as is.
 async function verifyWithAi(days: TimelineDay[]): Promise<TimelineDay[]> {
   const ai = getAiProvider();
   if (!ai) return days;
@@ -117,7 +102,7 @@ async function verifyWithAi(days: TimelineDay[]): Promise<TimelineDay[]> {
   if (candidates.length === 0) return days;
 
   const kept = await ai.verifyEvents(candidates.map((d) => d.headline as string));
-  if (!kept) return days; // provider failed — never downgrade the free result
+  if (!kept) return days; // AI failed, keep the original
 
   const keptSet = new Set(kept);
   return days.map((d) =>

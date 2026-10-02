@@ -10,8 +10,7 @@ export default async function PreferencesPage() {
   const lang = await getLang();
   const visitorId = await getVisitorId();
 
-  // No sign-in to redirect to. Without a cookie there is simply nothing stored,
-  // so the form renders at its defaults.
+  // no cookie = defaults
   const prefs = visitorId ? await getPreferences(visitorId) : DEFAULT_PREFERENCES;
 
   return (

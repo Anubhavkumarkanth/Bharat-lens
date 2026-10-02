@@ -7,14 +7,8 @@ import { articleReactions } from "@/lib/db/schema";
 import { getVisitorId } from "@/lib/visitor";
 import type { Interest } from "@/lib/reactions";
 
-/**
- * Engagement actions, keyed to the anonymous visitor cookie. There are no
- * accounts, so nothing here authenticates anybody — but every WHERE is still
- * scoped to the cookie's id so one reader never mutates another's rows.
- *
- * A missing cookie means the proxy never ran for this request; the action
- * becomes a no-op rather than writing a row nobody can ever read again.
- */
+// Like / interest actions. Every query filters on the visitor id. With no
+// cookie these do nothing.
 
 function refresh() {
   revalidatePath("/[scope]", "page");
@@ -46,7 +40,7 @@ export async function toggleLike(articleId: string): Promise<void> {
   refresh();
 }
 
-/** Passing the interest already set clears it, so the buttons toggle. */
+// Clicking the current value clears it.
 export async function setInterest(articleId: string, interest: Interest): Promise<void> {
   const visitorId = await getVisitorId();
   if (!visitorId) return;

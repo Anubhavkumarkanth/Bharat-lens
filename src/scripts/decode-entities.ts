@@ -3,13 +3,8 @@ import { articles } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { normalizeText } from "@/lib/ingestion/entities";
 
-/**
- * Rewrites stored titles, excerpts and bylines through the entity decoder.
- *
- * Ingestion decodes at insert time, so this is only needed for rows captured
- * before that existed — or after adding a named entity to the table. Idempotent:
- * decoding already-decoded text is a no-op, so re-running is safe.
- */
+// Fixes HTML entities in already stored titles, excerpts and bylines.
+// Ingestion does this now, so it's only for old rows. Safe to run twice.
 async function main() {
   const rows = await db
     .select({

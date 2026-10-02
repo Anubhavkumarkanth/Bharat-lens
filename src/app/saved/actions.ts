@@ -6,12 +6,8 @@ import { db } from "@/lib/db/client";
 import { collections, savedArticles } from "@/lib/db/schema";
 import { getVisitorId } from "@/lib/visitor";
 
-/**
- * Every mutation below scopes its WHERE clause to the anonymous visitor cookie.
- * There is nothing to authenticate, but a row id arriving from a form is still
- * never trusted on its own — pairing it with the visitor id is what stops one
- * reader editing another's saved article by guessing a uuid.
- */
+// Every query here also filters on the visitor id, so nobody can edit someone
+// else's rows by guessing an id.
 
 export interface SavedFormState {
   error?: string;
@@ -22,7 +18,7 @@ function refresh() {
   revalidatePath("/[scope]", "page");
 }
 
-/** Card-level toggle: saves an article, or removes it if this reader already had it. */
+// Save, or unsave if already saved.
 export async function toggleSave(articleId: string): Promise<void> {
   const visitorId = await getVisitorId();
   if (!visitorId) return;
@@ -56,8 +52,7 @@ export async function createCollection(
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return {};
 
-  // A duplicate name is the reader re-creating a folder they already have;
-  // the unique index makes that a no-op rather than an error page.
+  // duplicate name is ignored
   await db
     .insert(collections)
     .values({ id: crypto.randomUUID(), visitorId, name })
@@ -72,14 +67,13 @@ export async function deleteCollection(formData: FormData): Promise<void> {
   if (!visitorId) return;
 
   const id = String(formData.get("collectionId") ?? "");
-  // Saved rows survive: collection_id is ON DELETE SET NULL, so the articles
-  // fall back to "no collection" rather than disappearing with the folder.
+  // saved articles stay (collection_id is set to null)
   await db.delete(collections).where(and(eq(collections.id, id), eq(collections.visitorId, visitorId)));
 
   refresh();
 }
 
-/** Note, due date and collection are edited together from one row-level form. */
+// Updates note, date and collection together.
 export async function updateSavedItem(formData: FormData): Promise<void> {
   const visitorId = await getVisitorId();
   if (!visitorId) return;

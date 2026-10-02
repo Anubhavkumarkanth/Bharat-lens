@@ -1,13 +1,9 @@
-/**
- * Editable classification config. Deterministic scope/category assignment
- * (src/lib/scope-category) reads only this file — never hardcode keywords
- * into the classifier itself.
- */
+// Scopes, categories and keyword lists. The classifier (src/lib/scope-category)
+// reads everything from here.
 
 export type Scope = "india" | "india-abroad" | "impact-on-india" | "world" | "for-you";
 
-/** `personal: true` marks the reader's own feed. It is assembled from the other
- *  scopes, so it must never be listed as a source scope for itself. */
+// personal = the reader's own feed, built from the other scopes.
 export const SCOPES: { id: Scope; label: string; personal?: boolean }[] = [
   { id: "india", label: "India" },
   { id: "india-abroad", label: "India Abroad" },
@@ -40,18 +36,12 @@ export const CATEGORIES: { id: Category; label: string; keywords: string[] }[] =
   { id: "entertainment", label: "Entertainment", keywords: ["bollywood", "film", "movie", "box office", "celebrity", "music", "ott", "web series", "actor", "actress"] },
   { id: "health", label: "Health", keywords: ["hospital", "vaccine", "disease", "outbreak", "who", "mental health", "healthcare", "medicine", "doctor", "epidemic"] },
   { id: "gen-z", label: "Gen-Z", keywords: ["gen z", "social media trend", "influencer", "viral", "meme", "tiktok", "instagram reel", "youth culture"] },
-  // Deliberately keyword-free: this is where classifyCategory puts anything with
-  // no section hint and no keyword match. It must exist as a real category —
-  // falling back into a meaningful one instead labels crime, weather and
-  // accident reporting as business news.
+  // Fallback for anything that matches nothing. Used to fall back to business,
+  // which filled it with crime and weather stories.
   { id: "general", label: "General", keywords: [] },
 ];
 
-/**
- * URL path segments that identify a category. Publishers encode their section
- * in the URL ("/sports/", "/business/"), which is a far stronger signal than
- * keyword-matching a headline — checked before keywords during classification.
- */
+// URL sections that map to a category (e.g. /sports/). Checked before keywords.
 export const CATEGORY_PATH_HINTS: Record<string, Category> = {
   // sports
   sports: "sports", sport: "sports", cricket: "sports", football: "sports", soccer: "sports",
@@ -84,36 +74,27 @@ export const CATEGORY_PATH_HINTS: Record<string, Category> = {
   trending: "gen-z", viral: "gen-z", "social-media": "gen-z",
 };
 
-/**
- * URL path segments marking a story as foreign-desk coverage. An Indian
- * outlet's /world/ story is world news, not India news — without this, every
- * international piece an Indian paper runs lands in the India tab.
- */
+// URL sections for world news. An Indian paper's /world/ story is world news.
 export const WORLD_SECTION_SEGMENTS = [
   "world", "world-news", "international", "global", "africa", "americas",
   "europe", "middle-east", "asia-pacific", "mundo", "us-news", "uk-news",
 ];
 
-/** URL path segments marking opinion/analysis rather than straight news reporting. */
+// URL sections for opinion pieces.
 export const OPINION_PATH_SEGMENTS = [
   "opinion", "opinions", "views", "editorial", "editorials", "comment", "commentisfree",
   "analysis", "column", "columns", "columnist", "blogs", "blog", "perspective", "commentary",
 ];
 
-/** Keywords that mark a story as being about India, used for scope routing. */
+// Keywords for stories about India.
 export const INDIA_KEYWORDS = [
   "india", "indian", "delhi", "mumbai", "bengaluru", "bangalore", "kolkata", "chennai",
   "hyderabad", "modi", "rupee", "rbi", "bjp", "congress party", "lok sabha", "rajya sabha",
   "new delhi", "indian ocean", "kashmir", "punjab", "gujarat", "maharashtra", "tamil nadu",
 ];
 
-/**
- * Keywords marking a story about Indians *outside* India.
- *
- * INDIA_KEYWORDS cannot do this job: an Indian outlet mentions India in almost
- * every story, so "india" is noise there. These are specific to the diaspora —
- * who the story is about, not merely where it was published.
- */
+// Keywords for stories about Indians abroad. Has to be specific since Indian
+// outlets mention India in almost everything.
 export const INDIA_ABROAD_KEYWORDS = [
   "nri", "nris", "non-resident indian", "diaspora", "indian diaspora",
   "indian-american", "indian american", "indian-origin", "indian origin",
@@ -127,7 +108,7 @@ export const INDIA_ABROAD_KEYWORDS = [
   "indian techie", "indian techies", "green card", "indians in",
 ];
 
-/** Keywords marking global events that materially affect India (configurable, not hardcoded logic). */
+// Keywords for things abroad that affect India.
 export const IMPACT_ON_INDIA_KEYWORDS = [
   "oil price", "crude oil", "opec", "federal reserve", "fed rate", "us tariff", "trade policy",
   "visa rules", "h-1b", "immigration policy", "supply chain", "geopolitics", "sanctions",

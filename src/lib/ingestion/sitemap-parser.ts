@@ -5,7 +5,7 @@ import { normalizeText } from "./entities";
 export interface SitemapUrlEntry {
   loc: string;
   lastmod: Date | null;
-  title: string | null; // from <news:title> when present (Google News sitemap extension)
+  title: string | null; // <news:title> if there is one
 }
 
 const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: "@_" });
@@ -32,12 +32,8 @@ const MAX_SITEMAPS_TO_FOLLOW = 5;
 const MAX_URLS = 500;
 const MAX_ARTICLE_AGE_DAYS = 7;
 
-/**
- * Fetches and recursively resolves a sitemap (or sitemap index) into a
- * bounded, recency-filtered list of article URLs. Google News sitemaps are
- * already limited to ~2 days of content, but we defensively cap depth,
- * count, and age for arbitrary/general sitemaps too.
- */
+// Reads a sitemap or sitemap index and returns recent article URLs, with limits
+// on depth, count and age.
 export async function fetchSitemapItems(url: string, depth = 0): Promise<SitemapUrlEntry[]> {
   if (depth > 2) return [];
   const xml = await fetchText(url);
@@ -53,7 +49,7 @@ export async function fetchSitemapItems(url: string, depth = 0): Promise<Sitemap
   const index = doc.sitemapindex as Record<string, unknown> | undefined;
   if (index?.sitemap) {
     const children = asArray(index.sitemap as Record<string, unknown> | Record<string, unknown>[]);
-    // Newest-looking children first: sort by lastmod desc when present.
+    // newest first
     const sorted = [...children].sort((a, b) => {
       const da = parseLastmod(a.lastmod)?.getTime() ?? 0;
       const db = parseLastmod(b.lastmod)?.getTime() ?? 0;
@@ -85,8 +81,7 @@ export async function fetchSitemapItems(url: string, depth = 0): Promise<Sitemap
         return { loc, lastmod, title };
       })
       .filter((x): x is SitemapUrlEntry => x !== null)
-      // Keep undated entries too (discovery cascade / baseline logic decides how to treat them),
-      // but drop anything explicitly dated older than the cutoff.
+      // keep undated entries, drop ones older than the cutoff
       .filter((x) => x.lastmod === null || x.lastmod.getTime() >= cutoff);
     return items.slice(0, MAX_URLS);
   }

@@ -3,14 +3,8 @@ import { articles, storyClusters } from "@/lib/db/schema";
 import { asc, eq, notInArray } from "drizzle-orm";
 import { titleTokens, jaccardSimilarity, SAME_STORY_THRESHOLD } from "@/lib/ranking/similarity";
 
-/**
- * Rebuilds story clusters over stored rows.
- *
- * Needed after a change to the clustering rules, since articles are clustered
- * once at insert time. Replays the same algorithm ingestion uses — oldest
- * first, candidates pruned to a 48h window, and an outlet may appear in a
- * cluster only once — so the result matches what a fresh ingest would produce.
- */
+// Rebuilds story clusters for stored articles, using the same rules as ingestion
+// (oldest first, 48h window, one article per outlet). Run after changing clustering.
 const WINDOW_MS = 48 * 60 * 60 * 1000;
 
 interface Candidate {
@@ -42,8 +36,7 @@ async function main() {
 
   for (const row of rows) {
     const at = row.discoveredAt.getTime();
-    // Same 48h horizon ingestion uses; dropping stale candidates also keeps the
-    // scan from growing to the whole table.
+    // same 48h window as ingestion
     candidates = candidates.filter((c) => at - c.discoveredAt <= WINDOW_MS);
 
     const tokens = titleTokens(row.title);
@@ -76,7 +69,7 @@ async function main() {
     });
   }
 
-  // Insert every new cluster before repointing articles, or the foreign key fails.
+  // insert clusters before updating articles (foreign key)
   for (let i = 0; i < createdClusterIds.length; i += 500) {
     await db
       .insert(storyClusters)
@@ -93,7 +86,7 @@ async function main() {
     }
   }
 
-  // Clusters nothing points at any more.
+  // delete clusters with no articles left
   const live = [...new Set(assignments.values())];
   const orphans = await db
     .delete(storyClusters)

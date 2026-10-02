@@ -3,14 +3,8 @@ import { articleSummaries, articles, sources } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { summarizeArticle } from "@/lib/summarize";
 
-/**
- * Re-runs summarization over already-ingested rows. Needed whenever the summary
- * prompt or the provider changes — rule 4 caches by article and never
- * re-summarizes, so stored rows would otherwise keep the old wording forever.
- *
- * Clears the cached row first so summarizeArticle's "already grounded" guard
- * doesn't skip it. Costs one model call per article: pass a limit while testing.
- */
+// Redoes summaries for stored articles, e.g. after changing the prompt.
+// Deletes the cached summary first. One AI call per article, so use a limit when testing.
 async function main() {
   const limit = Number(process.argv[2]) || 20;
 

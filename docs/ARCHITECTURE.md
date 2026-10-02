@@ -1,288 +1,283 @@
 # Architecture
 
-Notes on how Bharat Lens is put together and why. The README covers what it does;
-this covers the decisions I'd have to defend in a code review.
+How Bharat Lens works and why some things are the way they are. The README covers what
+the app does.
 
-## The shape of the data
+## Scopes and categories
 
-Two dimensions that combine freely:
+Two filters that can be combined however you like:
 
-- **Scope** — India, India Abroad, Impact on India, World, and For You
-- **Category** — Finance, Politics, Sports, Technology, Business & Economy,
-  Environment, Education, Entertainment, Health, Gen-Z
+- Scope: India, India Abroad, Impact on India, World, For You
+- Category: Finance, Politics, Sports, Technology, Business & Economy, Environment,
+  Education, Entertainment, Health, Gen-Z (plus General as a fallback)
 
-Every combination is valid. Finance-in-World and Sports-in-Impact-on-India are both
-real views. Neither dimension is hardcoded against the other, and neither lives in
-application logic — both are lists in `src/config/taxonomy.ts`, so adding a category
-is a config edit rather than a code change.
+Any combination works, e.g. Finance in World or Sports in Impact on India. Both lists
+live in `src/config/taxonomy.ts`, so adding a category is a config change.
 
 ## Ingestion
 
-Runs on a schedule and writes to Postgres. Readers only ever read from the database —
-a page load never triggers a fetch to a publisher.
+A scheduled job fetches everything and writes it to Postgres. Pages only read from the
+database, so loading a page never hits a publisher's site.
 
-### Feed discovery is a cascade, because RSS is dying
+### Finding feeds
 
-About a third of these publishers expose no usable RSS. The pipeline tries, in order:
+About a third of the publishers don't have usable RSS. For each source the pipeline
+tries, in order:
 
-1. An explicit feed URL from config
-2. Feed links declared in the page `<head>`
-3. Common RSS paths (`/feed`, `/rss`, and so on)
-4. Sitemaps found via `robots.txt`, including recursive sitemap indexes
+1. a feed URL set in the config
+2. feed links in the page `<head>`
+3. common RSS paths (`/feed`, `/rss`, etc.)
+4. sitemaps listed in `robots.txt`, following sitemap indexes
 
-Each step checks that it actually received XML before accepting the result, so a
-blocked or wrong-content step falls through instead of failing the whole source.
+Each step checks that it actually got XML back. If a step is blocked or returns HTML,
+it moves on to the next one instead of failing the source.
 
-This was not a hypothetical worry. Measured against the live web:
+What I found when I tested this against the live sites:
 
-| Discovery path | Sources |
+| How the feed was found | Sources |
 | --- | --- |
-| Explicit or declared RSS | AFP, The Hindu, Indian Express, Livemint, Business Standard, Economic Times, Hindustan Times, BBC, The Guardian, Bloomberg, Al Jazeera |
-| RSS at a non-obvious URL | Scroll — its feed lives on Feedburner, not on scroll.in |
-| Sitemap fallback only | PTI, ANI, Reuters, AP, The Print |
+| Config or `<head>` RSS | AFP, The Hindu, Indian Express, Livemint, Business Standard, Economic Times, Hindustan Times, BBC, The Guardian, Bloomberg, Al Jazeera |
+| RSS somewhere unusual | Scroll (its feed is on Feedburner) |
+| Sitemap only | PTI, ANI, Reuters, AP, The Print |
 
-An RSS-only implementation loses five of seventeen sources, including Reuters and AP.
+With RSS only I'd have lost 5 of the first 17 sources, including Reuters and AP.
 
-Sources also go quiet and come back. PTI's sitemap index went stale in late August
-and the source returned nothing for weeks, then resumed on its own in mid-September
-with no change on this side. A dead source costs one request per run, so it stays
-configured rather than being removed — which is the whole argument for a cascade that
-falls through instead of failing.
+Sources also go quiet and come back. PTI's sitemap index stopped updating in late
+August and returned nothing for weeks, then started working again in mid-September
+without me changing anything. A dead source only costs one request per run, so I leave
+them configured.
 
-Sitemap resolution is bounded on three axes — depth (2), URL count (500) and age
-(7 days) — because a sitemap index can fan out a long way, and I would rather cap it
-than find the limit in production.
+Sitemap crawling is capped at depth 2, 500 URLs and 7 days old, because sitemap indexes
+can get huge.
 
-### Publishers block unknown bots
+### User agent
 
-Business Standard, ANI and AP return 403 to a custom bot user-agent, even for feeds
-they advertise publicly. `src/lib/ingestion/http.ts` sends a browser user-agent.
-`robots.txt` is still honoured — the point is to look like a normal client, not to
-ignore what a site has asked crawlers to leave alone.
+Business Standard, ANI and AP return 403 to a custom bot user agent, even for feeds they
+publish. `src/lib/ingestion/http.ts` sends a normal browser user agent. It still checks
+`robots.txt`.
 
-### Dedup happens twice, for two different problems
+### Deduplication
 
-**The same URL twice.** Canonical-URL identity with tracking parameters stripped,
-backed by a unique index. Cheap and exact.
+There are two separate problems here.
 
-**The same story from different outlets.** Title-token Jaccard similarity within a
-48-hour window groups them into one story cluster. A story carried by six papers
-becomes one card listing all six, instead of six cards saying the same thing.
+Same URL twice: URLs are canonicalized (tracking params removed) and there's a unique
+index on them. Simple.
 
-An outlet may appear in a cluster only once. That rule is doing real work: without
-it, AP's regional "Sportswatch Daily Listings" filings shared enough title tokens to
-collapse fifteen unrelated articles into a single card, hiding fourteen of them from
-the feed entirely and rendering "Also reported by AP, AP, AP". Same-URL duplicates
-are already handled by canonical identity, so cross-outlet grouping is the only job
-clustering has.
+Same story from different outlets: titles are compared with token Jaccard similarity
+within a 48 hour window, and matches go into one story cluster. Six papers carrying the
+same story become one card listing all six.
 
-### The run is time-boxed, and sources rotate
+Each outlet can only appear once per cluster. Without that rule, AP's regional
+"Sportswatch Daily Listings" posts had enough words in common that fifteen unrelated
+articles got merged into one card, which hid fourteen of them and showed "Also reported
+by AP, AP, AP". Same-URL duplicates are already handled by the unique index, so
+clustering only needs to group across outlets.
 
-Each summarized article also has its body fetched and stored for the reader, which
-makes a full pass over every source take far longer than the 300 seconds Vercel
-allows a function. Left unbounded, the platform kills the run mid-flight.
+### Time limit and source order
 
-So a run stops starting new work at a deadline — and because of that, sources are
-processed **least-recently-scanned first**. A fixed order plus a deadline would
-starve the tail of the list forever: the same sources would be reached every run and
-the last few never would. Ordering by `lastScannedAt` means whatever got cut off is
-first in line next time. Skipped sources are reported in the response rather than
-dropped silently, so a run that keeps running out of time looks unhealthy instead of
-looking fine.
+Every summarized article also gets its full text fetched and stored, so going through
+all the sources takes much longer than the 300 seconds Vercel allows. If a run goes
+over, Vercel just kills it.
+
+So the run stops starting new work after a deadline, and sources are processed
+least-recently-scanned first. With a fixed order the same sources at the end of the
+list would never get reached. This way, whatever got cut off goes first next time.
+Skipped sources are listed in the response so a run that keeps timing out is visible.
 
 ## Classification
 
-Deterministic, and ordered by signal strength: the publisher's own URL section path
-(`/world/`, `/sports/`, `/opinion/`) beats headline keyword matching, which beats a
-general bucket. A publisher telling you the section is better evidence than a keyword
-you guessed at.
+Classification is rule-based. The strongest signal wins: the URL section
+(`/world/`, `/sports/`, `/opinion/`) beats keywords in the headline, which beats the
+General fallback. If a publisher put it under `/sports/`, that's better evidence than a
+keyword match.
 
-Two bugs worth naming, because both are easy to ship by accident:
+Scope is decided by what the story is about, not who published it. Indian outlets
+mention India in almost every story, so India keywords don't tell you much for them.
+I used to just send everything from Indian outlets to "india", and India Abroad and
+Impact on India ended up with 79 and 37 articles vs 3,909 in India, since only foreign
+outlets could fill them. Diaspora keywords ("Indian students", "NRI", "Indian-origin")
+are specific enough to work for any publisher, so now every source goes through the same
+rules. If a story matches both diaspora and impact keywords, diaspora wins: "Indian
+students hit by new visa rules abroad" is about the students.
 
-Scope routing works on signal, not on who published the story. Indian outlets
-mention India in nearly every story, so `INDIA_KEYWORDS` cannot discriminate for
-them — which is why they used to be blanket-routed to "india". With twelve of
-seventeen sources Indian, that left India Abroad and Impact on India able to be
-filled only by foreign outlets, and they sat at 79 and 37 articles against India's
-3,909. Diaspora keywords ("Indian students", "NRI", "Indian-origin") are specific
-enough to discriminate regardless of publisher, so every source is now routed the
-same way. A tie between diaspora and impact goes to the diaspora: "Indian students
-hit by new visa rules abroad" is a story about Indian students, not about India's
-economy.
+General is a real category. Unmatched stories used to fall through to Business &
+Economy, which put about two thirds of everything (crime, weather, road accidents) in
+there and made that filter useless.
 
-The fallback category is a real category. It used to fall through to
-`business-economy`, which filed two thirds of the corpus — crime, weather, road
-accidents — under Business & Economy and made that filter useless to anyone looking
-for business news. "General" is honest about what the classifier does not know.
+Two bugs worth knowing about:
 
-- **Keyword matching has to be word-boundary based.** A plain substring check for
-  "ai" matches "said", "again" and "chair" — it inflated Technology by roughly 14x.
-  A substring check for "india" cheerfully matches "Indiana".
-- **An Indian outlet's `/world/` story is world news, not India news.** Without a
-  foreign-desk check, 230 international stories sat in the India tab.
+- Keyword matching has to use word boundaries. A substring check for "ai" matches
+  "said", "again" and "chair", and made Technology about 14x too big. "india" also
+  matches "Indiana".
+- A `/world/` story from an Indian outlet is world news. Without checking for that,
+  230 international stories were showing up under India.
 
-Classification happens once, at insert time. Changing the taxonomy therefore means
-re-running it over stored rows, which is what `src/scripts/reclassify.ts` is for.
+Classification runs once, at insert time. After changing the taxonomy, run
+`src/scripts/reclassify.ts` to update existing rows.
 
-## Ranking selects, then orders
+## Ranking
 
-Two distinct steps, in this order:
+Ranking happens in two steps:
 
-1. **Select** the day's queue from the broad candidate pool, applying a
-   source-diversity cap. Before this existed, `/world` was 29 cards from one
-   publisher.
-2. **Order** that queue by whatever sort the reader asked for.
+1. Select the day's stories from all candidates, with a cap per source. Before the cap,
+   `/world` was 29 cards from one publisher.
+2. Sort that selection by whatever the reader picked.
 
-Collapsing these into a single sort is the obvious thing to do, and it is wrong: a
-prolific outlet wins on recency and walls off the scope before the reader's
-preference is ever consulted.
+Doing it in one sort doesn't work, because an outlet that publishes a lot wins on
+recency and fills the page before the reader's sort is even applied.
 
-Feeds are paged, and that interacts with the cap in a way worth knowing about.
-`selectDailyQueue` derives its per-source cap from the target size, so selecting
-"one page's worth" per page caps a source at 10 on page 1 and 20 on page 2 — two
-different selections rather than one sliced list, and seven stories showed up on
-both pages. The whole candidate set is ordered once with a cap tied to `PAGE_SIZE`,
-and each page is a slice of that single ordering.
+Paging interacts with the cap. `selectDailyQueue` sets the per-source cap from the
+target size, so selecting one page at a time capped a source at 10 on page 1 and 20 on
+page 2. Those were two different selections, and seven stories showed up on both pages.
+Now the whole candidate set is ordered once with a cap based on `PAGE_SIZE`, and each
+page is a slice of that.
 
-## The AI layer is optional by design
+## AI is optional
 
-Ranking, classification, dedup, clustering and every filter are deterministic. With a
-provider key configured, the AI layer adds summaries, Hindi translation, reranking and
-news-spike verification on top. Without one, those features are absent and everything
-else works.
+Ranking, classification, dedup, clustering and filtering are all regular code. With an
+AI key set, you also get summaries, Hindi translation, reranking and a check on news
+spikes. Without a key those just don't appear and everything else works.
 
-This is not only about cost. It means the reading experience never blocks on a model
-call, an outage degrades features instead of taking the site down, and anyone who
-clones the repo can run it without being asked to buy an API key.
+That way the site never waits on a model, an API outage only removes features, and
+anyone can run it without paying for an API key.
 
-Providers sit behind one interface in `src/lib/ai/provider.ts`, with Gemini and
-Anthropic implementations selected by environment variable.
+Providers are behind one interface in `src/lib/ai/provider.ts` (Gemini or Anthropic,
+picked by environment variable).
 
-### Summaries are grounded or absent
+### Summaries
 
-Before any model call, the canonical page is fetched and parsed with Readability. Only
-that extracted text goes to the model, and the summary may restate only what is in it
-— no outside facts, no predictions, no causation the article did not assert. If the
-text cannot be retrieved, or is thinner than 200 characters, the card shows the
-headline and a source link and nothing else.
+Before summarizing, the article page is fetched and run through Readability. Only that
+text goes to the model, and the summary can only restate what's in it: no outside
+facts, no predictions, no cause and effect the article didn't state. If the text can't
+be fetched, or is under 200 characters, the card shows the headline and a link and
+nothing else. A news app that makes things up is worse than one that shows less.
 
-A card is never filled in with a guess. That was the first rule I wrote down, because
-a news app that invents detail is worse than one that admits it does not know.
+Summaries are cached by canonical URL and never regenerated. Hindi translations are
+cached next to them and made the first time someone asks for one. This is the biggest
+cost saving in the app.
 
-Summaries are cached by canonical-URL identity and never regenerated. Hindi
-translations are cached alongside the English summary and produced lazily on first
-request — translate once, serve many. This is the single biggest cost control in the
-app.
+## Readers without accounts
 
-## Readers, without accounts
+There's no sign-up. On the first request, `src/proxy.ts` sets a random UUID in an
+httpOnly cookie, and likes, saves, collections, notes, dates and preferences are all
+stored against that id.
 
-There is no sign-up. On the first request, `src/proxy.ts` mints a random UUID into an
-httpOnly cookie, and that id is what likes, saves, collections, notes, dates and
-preferences are filed under.
+Two details:
 
-Two things make this work:
+- Server Components can read cookies but can't set them, so the cookie is set in the
+  proxy before the route renders. It's set on the request as well as the response, so
+  the page rendering that same request can see it. Otherwise a new reader's very first
+  like would go nowhere.
+- The cookie comes from the client, so it's validated as a UUID and replaced if it
+  isn't one. It's the key for every per-visitor row, so accepting any string would let
+  someone write junk into it.
 
-- **Server Components can read cookies but cannot set them.** So the cookie is minted
-  in the proxy, before any route renders. It is set on the *request* as well as the
-  response, which is what makes it readable by the page rendering on that same
-  request — otherwise a first-time reader's very first like would land nowhere.
-- **The cookie is client-supplied, so it is not trusted.** It is validated as a UUID
-  and replaced otherwise. It is the primary key every per-visitor row is filed under,
-  and an arbitrary string would let a visitor write unbounded garbage into it.
+The downside is that it's per browser: saves don't follow you to your phone, and
+clearing cookies resets everything. The upside is no sign-up, no password, no email and
+no personal data.
 
-The tradeoff is deliberate and worth stating plainly: this is per-browser. Saves do
-not follow a reader to their phone, and clearing cookies starts them over. In exchange
-there is no sign-up, no password, no email, and no personal data stored anywhere.
+For You takes stories from the other scopes in the categories the reader picked, then
+moves up stories from categories or outlets they marked "interested". Stories marked
+"not interested" are removed before selection so they don't take up a slot. No AI
+needed.
 
-For You is assembled from the other scopes using the reader's chosen categories, then
-reordered so anything from a category or outlet they marked "interested" floats up.
-Stories marked "not interested" are excluded before selection, so a rejected story
-does not occupy one of the day's slots. All of it is deterministic and works with no
-AI key.
+## Reader and copyright
 
-## The in-app reader, and the copyright line
+`article_content` stores the Readability output for every article (the same text used
+for summaries).
 
-`article_content` stores the Readability extraction for every article — the same
-extraction that grounds the summaries, persisted instead of discarded.
+Storing it doesn't mean we can show it. `fullTextOk` in `src/config/sources.ts` decides
+per source whether the reader can show the full article, and it's false for every
+source. None of these publishers allow republishing, and the wires are the strictest
+about it. So the reader shows roughly the first third and then links to the publisher.
+Reader pages are `noindex` with a canonical link to the original.
 
-Storing it is not permission to publish it. `fullTextOk` in `src/config/sources.ts`
-decides per source whether the reader may render the full text, and it ships **false
-for every source**. None of these publishers grants republication rights, and wire
-services enforce it hardest. Everything else shows a lead-in of roughly the first
-third, then hands the reader to the publisher. Reader pages carry `noindex` and a
-canonical link to the original.
-
-Publisher HTML is never trusted. `src/lib/sanitize.ts` is an allowlist — unknown tag
-dropped, unknown attribute dropped, non-http(s) URL dropped — because that markup
-renders through `dangerouslySetInnerHTML` on our own origin.
+Publisher HTML isn't trusted. `src/lib/sanitize.ts` uses an allowlist (unknown tags,
+unknown attributes and non-http(s) URLs are dropped), since it's rendered with
+`dangerouslySetInnerHTML` on our domain.
 
 ## Search
 
-Postgres full-text search over title and excerpt, with a GIN expression index.
-`websearch_to_tsquery` parses the query, so quoted phrases, `OR` and a leading `-`
-all behave the way people expect from a search box, and the input is parameterised
-rather than interpolated.
+Postgres full-text search on title + excerpt, with a GIN expression index. Queries go
+through `websearch_to_tsquery`, so quotes, `OR` and `-word` work like people expect,
+and the input is passed as a parameter.
 
-Search deliberately ignores the reader's scope, category and time filters. A search
-box that only looks inside today's India feed is not a search box. It also skips the
-day-queue diversity cap — that cap exists to stop one outlet dominating a browse
-feed, but somebody searching for a story wants the matches, not a balanced sample.
-Results are ranked by `ts_rank` first, then recency.
+Search ignores the scope, category and date filters on purpose, since searching only
+inside today's India feed isn't very useful. It also skips the per-source cap, because
+someone searching wants all the matches. Results are sorted by `ts_rank`, then date.
 
-The index lives in `drizzle/manual/0001_search_index.sql` rather than in the drizzle
-schema, because drizzle has no way to express an expression index over
-`to_tsvector()`. Its expression has to match the query's expression character for
-character or the planner silently ignores it and falls back to a sequential scan.
+The index is in `drizzle/manual/0001_search_index.sql` because drizzle can't express an
+index on `to_tsvector()`. The expression has to match the query exactly, otherwise
+Postgres ignores the index and does a full scan.
 
-## The month timeline
+## Month timeline
 
-A strip of the current month where bar height is that day's volume, and an accent cap
-marks a day the detector judged a real event.
+A bar per day of the current month, where height is that day's volume and a highlight
+marks days that look like real events.
 
-The anti-noise rule needs no AI: **a day only counts when at least three distinct
-outlets covered the same story.** Bot farms, scraper loops and one publisher going
-heavy on listicles all produce volume from one or two origins; a real event gets
-picked up across the wire. Volume alone would mark every slow news day.
+A day only counts if at least three different outlets covered the same story. Spam,
+scraper loops or one publisher posting a lot all come from one or two sources, while
+real news gets picked up widely. Using volume alone would flag random slow days.
 
-The baseline is a median, not a mean — one enormous day would drag a mean upward and
-hide every other spike behind it. With an AI key configured, an optional pass narrows
-the surviving candidates further; without one, the deterministic result stands.
+The baseline is the median, not the mean, because one huge day would raise the mean and
+hide the other spikes. With an AI key there's an extra check on the remaining days;
+without one the rule-based result is used as is.
 
-## Things that bit me
+## Analytics
 
-- **The `react-hooks/purity` lint rule fails the build on a clock read inside a
-  component body**, Server Components included. Clock reads live in
-  `src/lib/clock.ts` and happen once per request, then get passed down — which also
-  means every card on a page agrees on what "now" is.
-- **Drizzle's raw-SQL path hands parameters straight to postgres-js**, which only
-  serializes strings and buffers, so passing a `Date` throws. A JS array also becomes
-  separate placeholders, which makes `= ANY(...)` fail with "requires array on right
-  side".
-- **A local-time month boundary is 5.5 hours early in IST** and silently drops the
-  last evening of the month. Everything date-bounded is computed in UTC.
-- **Publishers double-encode HTML entities in RSS titles.** An escaped entity in the
-  XML means the parser's own entity pass unwraps only the outer layer and leaves a
-  literal one behind, which React then escapes and renders verbatim. 223 of 3,827
-  stored titles were affected.
-- **`drizzle-kit push` crashes introspecting this database** (0.31.10, on a CHECK
-  constraint it cannot parse). Migrations are generated and applied as guarded SQL
-  instead.
+`/insights` and the notebook in `analysis/` read the same three SQL views
+(`drizzle/manual/0002_analytics_views.sql`): one row per article, one per story, and
+articles joined with their story's info. I put the cleaning rules there so I don't end
+up with one definition in TypeScript and a slightly different one in pandas.
 
-## Folder layout
+The views are in their own `analytics` schema so drizzle-kit ignores them, same idea as
+the search index. If they haven't been created, `/insights` shows the command to create
+them instead of crashing.
+
+Some decisions:
+
+- Speed uses the publisher's publish time, not `discovered_at`. The cron only runs once
+  a day, so `discovered_at` mostly tells you when the cron ran. Publish times that are
+  missing, just a date (midnight UTC or IST on the dot), in the future, or more than a
+  week old get labelled and left out.
+- "First to report" only counts stories at least two outlets covered. Otherwise an
+  outlet that publishes a lot wins just by being the only one with most of its stories.
+- Rates with fewer than `MIN_SAMPLE` stories behind them aren't shown.
+- The views aren't materialized. It's fast enough at this size. If it gets slow,
+  materializing `cluster_facts` and refreshing it after the cron would be the fix.
+
+## Bugs that took a while
+
+- The `react-hooks/purity` lint rule fails the build if you read the clock inside a
+  component, Server Components included. Clock reads are in `src/lib/clock.ts`, done
+  once per request and passed down, which also means every card on a page uses the same
+  "now".
+- Drizzle's raw SQL passes parameters straight to postgres-js, which only handles
+  strings and buffers, so passing a `Date` throws. A JS array also turns into separate
+  placeholders, so `= ANY(...)` fails with "requires array on right side".
+- A month boundary in local time is 5.5 hours early in IST and drops the last evening
+  of the month. Everything with dates uses UTC.
+- Some publishers double-encode HTML entities in RSS titles. The XML parser only undoes
+  one layer, React then escapes what's left, and you see `&amp;` on the page. 223 of
+  3,827 titles had this.
+- `drizzle-kit push` crashes on this database (0.31.10, on a CHECK constraint it can't
+  parse). Migrations are generated and applied as guarded SQL instead.
+
+## Folders
 
 ```
 src/
-  app/         routes, one folder per URL, with server actions beside the page using them
-  components/  UI. Client components only where interaction requires it
-  config/      the editable parts: sources, taxonomy, UI strings
-  lib/         the logic: ingestion, ranking, classification, AI, data access
-  scripts/     one-off and maintenance tools, run with tsx
+  app/         routes, with server actions next to the page that uses them
+  components/  UI; client components only where needed
+  config/      sources, taxonomy, UI strings
+  lib/         ingestion, ranking, classification, AI, data access
+  scripts/     maintenance scripts, run with tsx
+analysis/      Python analysis, report script and tests
 docs/          this file and screenshots
-drizzle/       generated migrations and the schema snapshot
+drizzle/       migrations, schema snapshot, and hand-applied SQL in manual/
 ```
 
-The rule for `config/` is that behaviour should be editable without touching logic.
-Sources live in `sources.ts`, scopes and categories and keyword lists in
-`taxonomy.ts`, and every display string in `ui-strings.ts`. No source name or category
-id is hardcoded into application code, and no English text is hardcoded into a
-component.
+Anything you'd want to change without touching logic goes in `config/`: sources in
+`sources.ts`, scopes, categories and keywords in `taxonomy.ts`, and all display text in
+`ui-strings.ts`. Source names, category ids and English text aren't hardcoded in the
+code.

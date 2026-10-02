@@ -11,7 +11,7 @@ export interface Collection {
 }
 
 export interface SavedItem {
-  id: string; // saved_articles.id, the handle every mutation takes
+  id: string; // saved_articles.id
   articleId: string;
   title: string;
   canonicalUrl: string;
@@ -20,16 +20,13 @@ export interface SavedItem {
   category: Category;
   note: string | null;
   remindAt: Date | null;
-  overdue: boolean; // remindAt is in the past; decided here so cards stay pure
+  overdue: boolean; // remindAt has passed
   archivedAt: Date | null;
   collectionId: string | null;
   savedAt: Date;
 }
 
-/**
- * Which of the currently displayed articles this reader has already saved, so
- * the card can render Save vs Saved without a query per card.
- */
+// Which of these articles are saved (one query for the page).
 export async function getSavedArticleIds(visitorId: string): Promise<Set<string>> {
   const rows = await db
     .select({ articleId: savedArticles.articleId })
@@ -77,8 +74,7 @@ export async function listSaved(
     .innerJoin(articles, eq(savedArticles.articleId, articles.id))
     .innerJoin(sources, eq(articles.sourceId, sources.id))
     .where(and(...conditions))
-    // Due items read as a to-do list, so the soonest date comes first; every
-    // other view is a reading pile, newest on top.
+    // Due: soonest first. Everything else: newest first.
     .orderBy(opts.view === "due" ? asc(savedArticles.remindAt) : desc(savedArticles.savedAt));
 
   const now = Date.now();
