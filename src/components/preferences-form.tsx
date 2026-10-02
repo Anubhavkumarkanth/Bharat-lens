@@ -24,7 +24,7 @@ export function PreferencesForm({ lang, prefs }: { lang: Lang; prefs: ReaderPref
           {CATEGORIES.map((c) => (
             <label
               key={c.id}
-              className="flex items-center gap-2 border border-border rounded-full px-3 py-1.5 text-sm cursor-pointer has-checked:bg-accent has-checked:text-white has-checked:border-accent"
+              className="flex items-center gap-2 border border-border rounded-full px-3 py-1.5 text-sm cursor-pointer has-checked:bg-accent has-checked:text-on-accent has-checked:border-accent"
             >
               <input
                 type="checkbox"
@@ -45,7 +45,7 @@ export function PreferencesForm({ lang, prefs }: { lang: Lang; prefs: ReaderPref
           {SCOPES.filter((s) => !s.personal).map((s) => (
             <label
               key={s.id}
-              className="flex items-center gap-2 border border-border rounded-full px-3 py-1.5 text-sm cursor-pointer has-checked:bg-accent has-checked:text-white has-checked:border-accent"
+              className="flex items-center gap-2 border border-border rounded-full px-3 py-1.5 text-sm cursor-pointer has-checked:bg-accent has-checked:text-on-accent has-checked:border-accent"
             >
               <input
                 type="checkbox"
@@ -99,7 +99,7 @@ export function PreferencesForm({ lang, prefs }: { lang: Lang; prefs: ReaderPref
       <button
         type="submit"
         disabled={pending}
-        className="self-start rounded-md bg-accent text-white px-4 py-2 text-sm font-medium disabled:opacity-60"
+        className="self-start rounded-md bg-accent text-on-accent px-4 py-2 text-sm font-medium disabled:opacity-60"
       >
         {t("prefs.save", lang)}
       </button>

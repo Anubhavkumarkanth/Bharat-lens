@@ -8,11 +8,8 @@ import type { RangeOption, SortOption } from "@/lib/query";
 const SORTS: SortOption[] = ["newest", "trending", "popular", "oldest"];
 const RANGES: RangeOption[] = ["live", "1d", "week", "month", "past-month", "year"];
 
-/**
- * `sort` and `range` are the values the server actually queried with — a signed-in
- * reader's saved defaults, not the URL's. Reading them from searchParams alone
- * would show "Newest" in the dropdown while the feed below was ordered otherwise.
- */
+// sort and range come from the server (they include saved defaults), so the
+// dropdowns match what the feed actually used.
 export function FilterBar({
   lang,
   sort,
@@ -45,7 +42,7 @@ export function FilterBar({
           aria-pressed={activeCategory === ""}
           className={`whitespace-nowrap px-3.5 py-1.5 rounded-full text-sm border transition-all duration-200 ${
             activeCategory === ""
-              ? "bg-accent text-white border-accent shadow-card"
+              ? "bg-accent text-on-accent border-accent shadow-card"
               : "border-border text-muted hover:text-foreground hover:border-border-strong"
           }`}
         >
@@ -58,7 +55,7 @@ export function FilterBar({
             aria-pressed={activeCategory === c.id}
             className={`whitespace-nowrap px-3.5 py-1.5 rounded-full text-sm border transition-all duration-200 ${
               activeCategory === c.id
-                ? "bg-accent text-white border-accent shadow-card"
+                ? "bg-accent text-on-accent border-accent shadow-card"
                 : "border-border text-muted hover:text-foreground hover:border-border-strong"
             }`}
           >

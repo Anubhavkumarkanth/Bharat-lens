@@ -16,13 +16,13 @@ export function LanguageToggle({ lang }: { lang: Lang }) {
     <div className="flex items-center rounded-full border border-border bg-surface text-sm overflow-hidden">
       <button
         onClick={() => setLang("en")}
-        className={`px-3 py-1 cursor-pointer ${lang === "en" ? "bg-accent text-white" : "text-muted"}`}
+        className={`px-3 py-1 cursor-pointer ${lang === "en" ? "bg-accent text-on-accent" : "text-muted"}`}
       >
         EN
       </button>
       <button
         onClick={() => setLang("hi")}
-        className={`px-3 py-1 cursor-pointer ${lang === "hi" ? "bg-accent text-white" : "text-muted"}`}
+        className={`px-3 py-1 cursor-pointer ${lang === "hi" ? "bg-accent text-on-accent" : "text-muted"}`}
       >
         हिं
       </button>
