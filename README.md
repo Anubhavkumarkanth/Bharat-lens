@@ -74,8 +74,7 @@ cd Bharat-lens
 npm install
 cp .env.example .env.local     # add a DATABASE_URL
 npm run db:push                # create the tables
-psql "$DATABASE_URL" -f drizzle/manual/0001_search_index.sql
-psql "$DATABASE_URL" -f drizzle/manual/0002_analytics_views.sql
+npm run db:setup               # search index + analytics views
 npm run ingest                 # the first run is a quiet baseline
 npm run dev
 ```
@@ -86,10 +85,31 @@ AI is optional. Without a key you get headline + source cards instead of summari
 everything else works the same. For summaries, Google AI Studio has a free tier; put
 the key in `GEMINI_API_KEY`.
 
+### Deploy it for free
+
+Everything here fits in free tiers: Supabase for Postgres, Vercel Hobby for the app,
+GitHub Actions for the weekly analysis.
+
+1. **Database.** Create a free project on [Supabase](https://supabase.com). Copy the
+   connection string from Connect > "Transaction pooler" (port 6543). Put it in
+   `.env.local` as `DATABASE_URL` and run `npm run db:push`, `npm run db:setup` and
+   `npm run ingest` once from your machine.
+2. **App.** On [Vercel](https://vercel.com), import the GitHub repo (Hobby plan, the
+   Next.js defaults are fine). Under Environment Variables add `DATABASE_URL`, a random
+   `CRON_SECRET`, and optionally `GEMINI_API_KEY`. Deploy.
+3. **Daily ingest.** `vercel.json` already runs `/api/cron/ingest` once a day. For more
+   often, make a free job on [cron-job.org](https://cron-job.org) that calls
+   `https://<your-app>.vercel.app/api/cron/ingest` every few hours with the header
+   `Authorization: Bearer <CRON_SECRET>`.
+4. **Weekly analysis.** In the GitHub repo, add `DATABASE_URL` under Settings > Secrets
+   and variables > Actions, then run the "Analysis report" workflow once from the
+   Actions tab.
+
 ### Scripts
 
 ```bash
 npm run ingest            # run the pipeline
+npm run db:setup          # apply the SQL in drizzle/manual/
 npm run stats             # counts by scope, category and source
 npm run reclassify        # re-classify stored rows after changing the taxonomy
 npm run recluster         # rebuild story clusters

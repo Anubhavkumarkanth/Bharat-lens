@@ -10,6 +10,7 @@
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
+    "db:setup": "tsx --env-file=.env.local src/scripts/db-setup.ts",
     "ingest": "tsx --env-file=.env.local src/scripts/ingest.ts",
     "stats": "tsx --env-file=.env.local src/scripts/stats.ts",
     "reclassify": "tsx --env-file=.env.local src/scripts/reclassify.ts",

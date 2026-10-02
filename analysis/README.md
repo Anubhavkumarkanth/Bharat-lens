@@ -48,7 +48,7 @@ Anything with fewer than 10 stories behind it gets left out.
 pip install -r analysis/requirements.txt
 
 pytest analysis                                  # no database needed
-python analysis/report.py --install-views        # first run: creates the views
+python analysis/report.py --install-views        # first run: creates the views (or npm run db:setup)
 python analysis/report.py --days 90              # later runs, any window
 
 pip install jupyterlab
