@@ -8,20 +8,18 @@ export type SortOption = "newest" | "trending" | "popular" | "oldest";
 export type RangeOption = "live" | "1d" | "week" | "month" | "past-month" | "year";
 
 export interface QueryArticlesParams {
-  /** One scope, or several — the For You feed draws from every scope the reader picked. */
+  /** One scope, or several (For You uses all the reader's scopes). */
   scope: Scope | Scope[];
   /** One category, or several. Omitted or empty means no category filter. */
   category?: Category | Category[];
   sort?: SortOption;
   range?: RangeOption;
   limit?: number;
-  /** Stories the reader marked "not interested". Excluded before selection, so
-   *  a rejected story doesn't take up one of the day's slots. */
+  /** Stories marked "not interested". Removed before selection so they don't use up a slot. */
   excludeArticleIds?: string[];
   /** YYYY-MM-DD from the month timeline. Overrides `range` when set. */
   day?: string;
-  /** 1-based. The diversity cap is applied to the whole span up to this page,
-   *  then sliced, so paging deeper cannot let one outlet take over page 3. */
+  /** 1-based. The source cap is applied to everything up to this page, then sliced. */
   page?: number;
 }
 
@@ -70,12 +68,11 @@ function rangeStart(range: RangeOption): Date {
   }
 }
 
-/** Cards per feed page. Exported so the page can tell a full page (probably
- *  more behind it) from a short one (definitely the end). */
+/** Cards per page. Exported so the page can tell if there's a next page. */
 export const PAGE_SIZE = 40;
 const SEARCH_LIMIT = 60;
 
-/** One place defining what a card needs, so search and the feed cannot drift apart. */
+/** Columns a card needs. Shared by search and the feed. */
 const CARD_COLUMNS = {
   id: articles.id,
   clusterId: articles.clusterId,
@@ -95,9 +92,7 @@ const CARD_COLUMNS = {
   grounded: articleSummaries.grounded,
 } as const;
 
-/** Written out rather than derived from CARD_COLUMNS: drizzle's column type
- *  carries the data type but not its nullability, so a mapped type quietly
- *  makes every nullable column non-null. */
+// Written out by hand because a type mapped from CARD_COLUMNS loses nullability.
 interface CardRow {
   id: string;
   clusterId: string;
@@ -117,12 +112,8 @@ interface CardRow {
   grounded: boolean | null;
 }
 
-/**
- * Collapses rows into one card per story cluster, keeping the highest-priority
- * article as primary and every other outlet in the cluster alongside it.
- * Preserves the order clusters were first seen in, so a caller that sorted by
- * relevance keeps that order.
- */
+// One card per cluster. The highest-priority article is the main one and the
+// rest are listed as other outlets. Keeps the incoming order.
 function toCards(rows: CardRow[], now: number): StoryCard[] {
   const byCluster = new Map<string, CardRow[]>();
   for (const row of rows) {
@@ -156,22 +147,13 @@ function toCards(rows: CardRow[], now: number): StoryCard[] {
   });
 }
 
-/**
- * Full-text search across every scope and the whole corpus.
- *
- * Deliberately ignores the reader's scope, category and time filters: a search
- * box that only looks inside today's India feed is not a search box. Ranked by
- * relevance first, then recency, and the day-queue diversity cap is skipped —
- * that exists to stop one outlet dominating a browse feed, but when someone
- * searches for a story they want the matches, not a balanced sample.
- */
+// Full-text search over everything. Ignores scope/category/date filters and the
+// per-source cap on purpose. Sorted by relevance, then date.
 export async function searchArticles(query: string, now: number): Promise<StoryCard[]> {
   const trimmed = query.trim();
   if (trimmed.length < 2) return [];
 
-  // Must match the expression on articles_search_idx exactly, or Postgres
-  // cannot use the GIN index. websearch_to_tsquery handles quoted phrases,
-  // OR and leading - the way people expect a search box to behave.
+  // Has to match the articles_search_idx expression exactly or the index isn't used.
   const document = sql`to_tsvector('english', ${articles.title} || ' ' || coalesce(${articles.excerpt}, ''))`;
   const tsquery = sql`websearch_to_tsquery('english', ${trimmed})`;
 
@@ -202,11 +184,10 @@ export async function queryArticles(params: QueryArticlesParams): Promise<StoryC
   const scopes = Array.isArray(scope) ? scope : [scope];
   const categories = category === undefined ? [] : Array.isArray(category) ? category : [category];
 
-  // An empty scope list would match every row rather than none, so bail early.
+  // empty scope list would match everything
   if (scopes.length === 0) return [];
 
-  // A day pinned on the timeline replaces the rolling range entirely — the
-  // reader asked for that date, not "the last 24 hours ending on it".
+  // a day picked on the timeline replaces the range
   const dayStart = day ? new Date(`${day}T00:00:00.000Z`) : null;
   const validDay = dayStart && !Number.isNaN(dayStart.getTime()) ? dayStart : null;
   const dayEnd = validDay ? new Date(validDay.getTime() + 24 * 60 * 60 * 1000) : null;
@@ -230,10 +211,9 @@ export async function queryArticles(params: QueryArticlesParams): Promise<StoryC
     .leftJoin(articleSummaries, eq(articles.id, articleSummaries.articleId))
     .where(and(...conditions))
     .orderBy(sort === "oldest" ? asc(articles.discoveredAt) : desc(articles.discoveredAt))
-    .limit(1500); // broad candidate pool; clustered and trimmed below
+    .limit(1500); // candidates, trimmed below
 
-  // Group into one card per story cluster, keeping the highest-priority article as primary
-  // and every other source in the cluster as an "other outlet" for the compare view.
+  // one card per cluster
   const byCluster = new Map<string, typeof rows>();
   for (const row of rows) {
     const bucket = byCluster.get(row.clusterId) ?? [];
@@ -278,21 +258,11 @@ export async function queryArticles(params: QueryArticlesParams): Promise<StoryC
     });
   }
 
-  // Two distinct steps, per the ranking model: first *select* the day's queue
-  // from the broad candidate pool with the source-diversity cap applied (so one
-  // prolific outlet can't wall off a scope), then *order* that queue by whatever
-  // the reader asked for.
+  // Select first (with the per-source cap), then sort. See ARCHITECTURE.md.
   const byId = new Map(scored.map((s) => [s.rankable.id, s.card]));
 
-  // Order the whole candidate set once, with a fixed per-source cap, then slice
-  // the requested page out of it.
-  //
-  // Selecting only as much as the current page needs looks equivalent and is
-  // not: selectDailyQueue derives its per-source cap from the target size, so
-  // asking for 40 caps a source at 10 while asking for 80 caps it at 20. The two
-  // selections are then different lists rather than one being a prefix of the
-  // other, and pages overlap — seven stories appeared on both page 1 and page 2.
-  // A cap tied to PAGE_SIZE keeps every page a slice of the same ordering.
+  // Order everything once with a cap based on PAGE_SIZE, then slice out the page.
+  // Selecting per page changed the cap per page and stories showed up on two pages.
   const rankables = scored.map((s) => s.rankable);
   const selected = selectDailyQueue(
     rankables,
@@ -308,8 +278,7 @@ export async function queryArticles(params: QueryArticlesParams): Promise<StoryC
       return sort === "oldest" ? at - bt : bt - at;
     });
   } else {
-    // "trending" and "popular" both use the deterministic score as a proxy until
-    // real view-count tracking lands (Phase 2/3) — see project README.
+    // no view tracking yet, so trending/popular use the ranking score
     ordered.sort((a, b) => scoreArticle(b, now) - scoreArticle(a, now));
   }
 

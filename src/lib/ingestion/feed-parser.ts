@@ -32,7 +32,7 @@ function parseDate(value: unknown): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-/** Parses RSS 2.0 or Atom XML into a flat list of items. Returns [] on malformed XML rather than throwing. */
+// Parses RSS or Atom. Returns [] for broken XML.
 export function parseFeed(xml: string): FeedItem[] {
   let doc: Record<string, unknown>;
   try {

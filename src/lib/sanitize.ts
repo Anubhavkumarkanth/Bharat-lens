@@ -1,14 +1,7 @@
 import { parseHTML } from "linkedom";
 
-/**
- * Allowlist sanitizer for publisher markup.
- *
- * The reader renders this through dangerouslySetInnerHTML, so anything not
- * explicitly permitted here becomes script execution on our own origin, with
- * access to the visitor cookie and to whatever else the page can reach.
- * Allowlist, never blocklist: an unknown tag is dropped, an unknown attribute
- * is dropped.
- */
+// Allowlist sanitizer for publisher HTML. The reader renders it with
+// dangerouslySetInnerHTML, so anything not listed here gets dropped.
 const ALLOWED_TAGS = new Set([
   "p", "br", "hr",
   "h2", "h3", "h4",
@@ -25,12 +18,7 @@ const ALLOWED_ATTRS: Record<string, Set<string>> = {
   img: new Set(["src", "alt"]),
 };
 
-/**
- * Anything that isn't a plain web URL — javascript:, data:, vbscript: — is dropped.
- * Publisher markup is full of root-relative links ("/topic/amazon-cargo"); without
- * a base to resolve them against they'd render as dead anchors, so callers pass
- * the article's canonical URL.
- */
+// Only http(s) URLs survive. Relative links are resolved against the article URL.
 function safeUrl(value: string | null, baseUrl?: string): string | null {
   if (!value) return null;
   const trimmed = value.trim();
@@ -51,15 +39,14 @@ export function sanitizeArticleHtml(html: string, baseUrl?: string): string {
   const root = document.getElementById("root");
   if (!root) return "";
 
-  // Snapshot first: the tree is mutated while walking it.
+  // copy first, the tree changes while we walk it
   const elements = Array.from(root.querySelectorAll("*")) as Element[];
 
   for (const el of elements) {
     const tag = el.tagName.toLowerCase();
 
     if (!ALLOWED_TAGS.has(tag)) {
-      // Keep the text of a disallowed wrapper (a <div> or <span> around a
-      // paragraph), but drop anything whose content is not prose at all.
+      // unwrap disallowed wrappers like div/span but keep their text
       if (tag === "script" || tag === "style" || tag === "noscript" || tag === "iframe") {
         el.remove();
       } else {
@@ -82,7 +69,7 @@ export function sanitizeArticleHtml(html: string, baseUrl?: string): string {
       }
     }
 
-    // Outbound links leave our origin — never hand them window.opener.
+    // no window.opener for outbound links
     if (tag === "a" && el.getAttribute("href")) {
       el.setAttribute("target", "_blank");
       el.setAttribute("rel", "noopener noreferrer nofollow");
@@ -94,18 +81,8 @@ export function sanitizeArticleHtml(html: string, baseUrl?: string): string {
   return root.innerHTML;
 }
 
-/**
- * Removes breadcrumb and navigation lists that Readability keeps.
- *
- * A publisher's "Home / News / Cities / Delhi" trail is markup, not reporting,
- * and it was rendering as the first thing in the reader — and eating part of
- * the lead-in budget for restricted sources, so readers got navigation instead
- * of the story.
- *
- * The test is structural rather than a list of class names: a list whose items
- * are nothing but short links is navigation in any publisher's markup. A real
- * list in an article has prose in its items.
- */
+// Removes breadcrumbs and nav lists that Readability leaves in ("Home / News /
+// Delhi"). A list where every item is just a short link is treated as navigation.
 function dropNavigationLists(root: Element): void {
   for (const list of Array.from(root.querySelectorAll("ul, ol")) as Element[]) {
     const items = Array.from(list.querySelectorAll("li")) as Element[];
@@ -116,7 +93,7 @@ function dropNavigationLists(root: Element): void {
       if (!link) return false;
       const itemText = (li.textContent ?? "").trim();
       const linkText = (link.textContent ?? "").trim();
-      // The item is the link, and the link is a label rather than a sentence.
+      // item is only a short link
       return itemText === linkText && itemText.split(/\s+/).length <= 3;
     });
 
@@ -124,16 +101,8 @@ function dropNavigationLists(root: Element): void {
   }
 }
 
-/**
- * Cuts sanitized markup down to roughly `fraction` of the article, for sources
- * we may not republish in full.
- *
- * Measured by text length, not element count. Publisher markup opens with short
- * boilerplate blocks — a dateline, a "trusted source" badge — and counting
- * elements spent the entire budget on those before reaching a word of the story.
- * Whole blocks only: a story that stops mid-sentence reads like a bug rather
- * than a deliberate hand-off.
- */
+// Cuts the article down to about `fraction` of its text, for sources we can't
+// show in full. Counts text length (not elements) and keeps whole blocks.
 export function leadIn(html: string, fraction = 0.35): string {
   const { document } = parseHTML(`<div id="root">${html}</div>`);
   const root = document.getElementById("root");
@@ -142,9 +111,7 @@ export function leadIn(html: string, fraction = 0.35): string {
   const blocks = Array.from(root.children) as Element[];
   if (blocks.length === 0) return html;
 
-  // Measure the total the same way the per-block lengths are measured. Reading
-  // it off the root instead counts the whitespace between elements, which the
-  // block measure trims — that inflated the budget and leaked most of the story.
+  // measure the total the same way as each block (root textContent includes extra whitespace)
   const lengths = blocks.map((b) => (b.textContent ?? "").trim().length);
   const total = lengths.reduce((sum, n) => sum + n, 0);
   if (total === 0) return html;
@@ -153,9 +120,7 @@ export function leadIn(html: string, fraction = 0.35): string {
   const kept: string[] = [];
   let accumulated = 0;
 
-  // Accumulate whole blocks until the budget is met, letting the last one
-  // overshoot. Stopping *before* an overshoot instead would cut the lead off at
-  // the dateline on any story whose first real paragraph is long.
+  // add whole blocks until over budget (the last one can go over)
   for (const [i, block] of blocks.entries()) {
     kept.push(block.outerHTML);
     accumulated += lengths[i];
@@ -165,7 +130,7 @@ export function leadIn(html: string, fraction = 0.35): string {
   return kept.join("");
 }
 
-/** Average adult reading speed, rounded up; 1 minute is the floor. */
+// ~average reading speed, minimum 1 minute
 export function readingMinutes(wordCount: number): number {
   return Math.max(1, Math.round(wordCount / 225));
 }

@@ -1,22 +1,16 @@
 # Screenshots
 
-`feed.png`, `reader.png` and `search.png` are captured headlessly at 1440px wide:
+`feed.png`, `hindi.png`, `search.png`, `reader.png` and `insights.png` are retaken by
+the Analysis report GitHub Action (`.github/scripts/screenshots.mjs`) against
+production, at 1440px wide. Don't replace them with ones from a local or test
+database.
+
+To take them yourself against a running server:
 
 ```bash
-chrome --headless=new --hide-scrollbars --window-size=1440,1100 \
-  --screenshot=docs/screenshots/feed.png http://localhost:3000/india
+npm install --no-save playwright
+BASE_URL=http://localhost:3000 node .github/scripts/screenshots.mjs
 ```
 
-`hindi.png` uses the URL override rather than the toggle, since a headless run
-has no cookie to toggle:
-
-```bash
-chrome --headless=new --hide-scrollbars --window-size=1440,1100   --screenshot=docs/screenshots/hindi.png "http://localhost:3000/india?lang=hi"
-```
-
-Still worth adding by hand, because it needs state a headless run cannot reach:
-
-- `saved.png` — the Saved page with a collection, a note and a date filled in.
-  Save a couple of stories in a real browser first, then screenshot /saved.
-
-Take that one with the window maximised and crop out browser chrome.
+`saved.png` would still need doing by hand, since it needs some saved stories, a
+collection and a note first.

@@ -2,7 +2,7 @@ import { t, type Lang, type UiStringKey } from "@/config/ui-strings";
 import { removeSaved, setArchived, updateSavedItem } from "@/app/saved/actions";
 import type { Collection, SavedItem } from "@/lib/saved";
 
-/** `<input type="date">` wants YYYY-MM-DD; anything else silently renders blank. */
+// <input type="date"> needs YYYY-MM-DD
 function dateInputValue(date: Date | null): string {
   return date ? date.toISOString().slice(0, 10) : "";
 }

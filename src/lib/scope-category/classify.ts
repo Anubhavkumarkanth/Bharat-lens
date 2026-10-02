@@ -13,11 +13,7 @@ import {
 
 const patternCache = new Map<string, RegExp>();
 
-/**
- * Word-boundary matching. Plain substring matching silently wrecks the
- * classifier: "ai" hits "said"/"again"/"chair", "india" hits "Indiana".
- * Multi-word phrases match across any whitespace run.
- */
+// Whole-word matching. Substrings broke things ("ai" in "said", "india" in "Indiana").
 function keywordPattern(keyword: string): RegExp {
   const cached = patternCache.get(keyword);
   if (cached) return cached;
@@ -35,21 +31,9 @@ function countKeywordHits(haystack: string, keywords: string[]): number {
   return hits;
 }
 
-/**
- * Deterministic scope classifier.
- *
- * The publisher's section path is checked first: an Indian outlet's /world/
- * story belongs in World, not in the India tab.
- *
- * The important subtlety is that INDIA_KEYWORDS are useless for Indian sources
- * — those outlets mention India in nearly every story. Indian sources used to
- * be blanket-routed to "india" because of that, which starved the other two
- * scopes: twelve of seventeen sources are Indian, so India Abroad and Impact on
- * India could only ever be filled by foreign outlets and sat at 79 and 37
- * articles against India's 3,909. The diaspora and impact keyword sets are
- * specific enough to discriminate regardless of who published the story, so
- * every source is now routed by signal rather than by nationality.
- */
+// Picks the scope. /world/ URLs go to World first. After that it's keywords,
+// the same for every source. (Indian sources used to all go to "india", which
+// left India Abroad and Impact on India nearly empty.)
 export function classifyScope(
   source: SourceConfig,
   title: string,
@@ -65,10 +49,8 @@ export function classifyScope(
     url !== undefined &&
     pathSegments(url).some((s) => WORLD_SECTION_SEGMENTS.includes(s));
 
-  // Whichever of the two specific signals is stronger wins, and a tie goes to
-  // the diaspora. "Indian students hit by new visa rules abroad" matches both,
-  // but it is a story about Indian students, not about India's economy — who
-  // the story is about is the more concrete claim when both fire.
+  // Stronger match wins, ties go to India Abroad ("Indian students hit by new
+  // visa rules" is about the students).
   const specific: Scope | null =
     abroadHits > 0 && abroadHits >= impactHits
       ? "india-abroad"
@@ -78,7 +60,7 @@ export function classifyScope(
 
   if (isForeignDesk) {
     if (specific) return specific;
-    // A foreign outlet's world-desk story that is simply *about* India.
+    // foreign outlet writing about India
     if (indiaHits > 0 && source.country !== "IN") return "india-abroad";
     return "world";
   }
@@ -97,11 +79,7 @@ function pathSegments(url: string): string[] {
   }
 }
 
-/**
- * Deterministic category classifier. The publisher's own section path is the
- * strongest signal, so it wins; headline keywords are the fallback. Only
- * articles with neither land in the general bucket.
- */
+// Picks the category: URL section first, then keywords, else general.
 export function classifyCategory(title: string, excerpt: string | null, url?: string): Category {
   if (url) {
     for (const segment of pathSegments(url)) {
@@ -116,14 +94,11 @@ export function classifyCategory(title: string, excerpt: string | null, url?: st
     const hits = countKeywordHits(text, cat.keywords);
     if (hits > best.hits) best = { id: cat.id, hits };
   }
-  // No section hint and no keyword matched. This has to be a bucket of its own:
-  // it used to fall through to "business-economy", which put two thirds of the
-  // corpus — crime, weather, accidents — under Business & Economy, and made that
-  // filter useless for anyone actually looking for business news.
+  // nothing matched (used to default to business, which made that filter useless)
   return best.hits > 0 ? best.id : "general";
 }
 
-/** News report vs opinion/analysis, from the publisher's own section path. */
+// News or opinion, based on the URL.
 export function classifyContentType(url: string): "news-report" | "opinion" {
   return pathSegments(url).some((s) => OPINION_PATH_SEGMENTS.includes(s)) ? "opinion" : "news-report";
 }

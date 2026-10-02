@@ -24,7 +24,7 @@ export async function ArticleCard({
 }: {
   story: StoryCard;
   lang: Lang;
-  /** Single clock reading from the page, so cards stay pure and agree with each other. */
+  /** "now" from the page */
   now: number;
   index?: number;
   saved?: boolean;
@@ -39,7 +39,7 @@ export async function ArticleCard({
   return (
     <article
       className="group flex flex-col gap-3 rounded-2xl border border-border bg-surface p-5 shadow-card transition-all duration-300 hover:shadow-lift hover:-translate-y-0.5 hover:border-border-strong animate-rise"
-      // Staggered entrance, capped so the last card in a long feed isn't left waiting.
+      // staggered fade-in, capped
       style={{ animationDelay: `${Math.min(index, 8) * 45}ms` }}
     >
       <div className="flex items-center gap-2 text-xs text-muted flex-wrap">
@@ -77,7 +77,7 @@ export async function ArticleCard({
         <p className="text-sm italic text-muted">{t("state.headlineOnly", lang)}</p>
       )}
 
-      {/* Both ways in, side by side — read it here, or go to the publisher. */}
+      {/* read here or on the publisher's site */}
       <div className="flex items-center gap-4 text-sm pt-1">
         <Link
           href={`/article/${story.id}`}

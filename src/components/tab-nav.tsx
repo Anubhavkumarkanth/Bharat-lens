@@ -23,8 +23,7 @@ export function TabNav({ lang }: { lang: Lang }) {
             }`}
           >
             {t(`scope.${scope.id}` as UiStringKey, lang)}
-            {/* Underline is its own element so it can animate width rather than
-                snapping, and so the label doesn't shift when it bolds. */}
+            {/* separate underline element so it can animate */}
             <span
               className={`absolute left-3.5 right-3.5 sm:left-4 sm:right-4 -bottom-px h-0.5 rounded-full bg-accent transition-transform duration-200 origin-left ${
                 active ? "scale-x-100" : "scale-x-0"

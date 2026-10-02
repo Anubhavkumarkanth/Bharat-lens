@@ -8,32 +8,20 @@ import { AnthropicProvider } from "./anthropic";
 import { GeminiProvider } from "./gemini";
 
 export interface AiProvider {
-  /** Returns a grounded plain-language summary, or null on any failure (caller falls back silently). */
+  /** Summary from the article text, or null if anything fails. */
   summarize(input: SummarizeInput): Promise<string | null>;
-  /** Translates already-generated English UI/summary text to Hindi, or null on failure. */
+  /** English to Hindi, or null on failure. */
   translateToHindi(text: string): Promise<string | null>;
-  /** Optional reranking of an already-bounded candidate set. Returns reordered ids, or null on failure. */
+  /** Reorders the given ids, or null on failure. */
   rerank(candidates: { id: string; title: string }[]): Promise<string[] | null>;
-  /**
-   * Optional second opinion on whether a detected news spike is a real event
-   * rather than coordinated spam or a recycled story. Returns the headlines it
-   * judges genuine, or null on any failure — the deterministic multi-source
-   * check already stands on its own, so this only ever narrows the list.
-   */
+  /** Of the given big-news-day headlines, returns the ones that look real (null on failure). */
   verifyEvents(headlines: string[]): Promise<string[] | null>;
 }
 
 let cached: AiProvider | null | undefined;
 
-/**
- * Returns the configured AI provider, or null if no key is set. The rest of
- * the app must treat null as "AI layer disabled" and keep working on
- * deterministic ranking + headline-only cards — never block on this.
- *
- * Gemini is the default because its free tier costs nothing; setting
- * ANTHROPIC_API_KEY later switches the whole app over with no code change.
- * AI_PROVIDER forces one either way when both keys are present.
- */
+// Returns the AI provider, or null if no key is set (then AI features are just off).
+// Gemini by default since it has a free tier. AI_PROVIDER picks one if both keys are set.
 export function getAiProvider(): AiProvider | null {
   if (cached !== undefined) return cached;
 

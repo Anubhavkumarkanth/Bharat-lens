@@ -103,7 +103,16 @@ npm run decode-entities  # normalize stored titles, excerpts and bylines
 npm run resummarize      # re-summarize stored rows
 npm run test:classify    # classifier assertions
 npm run debug-source <source-id>
+
+pytest analysis                       # analysis unit tests (pip install -r analysis/requirements.txt)
+python analysis/report.py --days 30   # coverage findings, charts, CSVs → analysis/output/
 ```
+
+`/insights` and `analysis/` both read the `analytics.*` views in
+`drizzle/manual/0002_analytics_views.sql`. Change cleaning rules there, not in
+TypeScript or pandas. `analysis/output/`, the run notebook and
+the README screenshots come from the weekly GitHub Action against production;
+don't commit versions made from local or fake data.
 
 Ingestion classifies, clusters and summarizes **once**, at insert time. Any change to
 taxonomy keywords, classifier logic, clustering rules or the summary prompt therefore

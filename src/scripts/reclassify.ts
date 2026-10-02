@@ -4,11 +4,7 @@ import { eq } from "drizzle-orm";
 import { SOURCES } from "@/config/sources";
 import { classifyCategory, classifyContentType, classifyScope } from "@/lib/scope-category/classify";
 
-/**
- * Re-runs scope/category classification over already-ingested rows. Needed
- * whenever the taxonomy keywords or the classifier logic change — ingestion
- * classifies once at insert time, so stored rows would otherwise keep old labels.
- */
+// Re-classifies stored articles. Run after changing the taxonomy or classifier.
 async function main() {
   const rows = await db
     .select({

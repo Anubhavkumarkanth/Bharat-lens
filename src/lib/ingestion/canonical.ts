@@ -4,13 +4,13 @@ const TRACKING_PARAMS = [
   "__twitter_impression", "action-mode", "sr_share",
 ];
 
-/** Strips tracking params, fragment, and trailing slash so the same story from the same URL always dedups. */
+// Removes tracking params, the #fragment and trailing slash so duplicate URLs match.
 export function canonicalizeUrl(rawUrl: string): string {
   try {
     const url = new URL(rawUrl);
     for (const param of TRACKING_PARAMS) url.searchParams.delete(param);
     url.hash = "";
-    // Sort remaining params for stable ordering.
+    // sort the rest so order doesn't matter
     url.searchParams.sort();
     let result = url.toString();
     if (result.endsWith("/") && url.pathname !== "/") result = result.slice(0, -1);

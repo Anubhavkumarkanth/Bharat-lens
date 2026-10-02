@@ -12,7 +12,7 @@ export interface Reaction {
 
 export const NO_REACTION: Reaction = { liked: false, interest: null };
 
-/** Reactions for exactly the articles on screen — one query for the whole feed. */
+// Reactions for the articles on the page, in one query.
 export async function getReactionsFor(
   visitorId: string,
   articleIds: string[]
@@ -36,18 +36,14 @@ export async function getReactionsFor(
 }
 
 export interface InterestProfile {
-  /** Explicitly rejected stories. Excluded from For You outright. */
+  /** "Not interested" stories, removed from For You. */
   excludedArticleIds: string[];
   boostedCategories: Set<Category>;
   boostedSources: Set<string>;
 }
 
-/**
- * Turns per-article interest marks into feed signals, deterministically — no AI.
- * "Not interested" is treated as a hard exclusion of that story and nothing
- * more: one rejected cricket piece shouldn't cost the reader the whole category.
- * "Interested" is the softer signal and lifts its category and outlet.
- */
+// "Not interested" only hides that one story (not the whole category).
+// "Interested" boosts the story's category and outlet.
 export async function getInterestProfile(visitorId: string): Promise<InterestProfile> {
   const rows = await db
     .select({

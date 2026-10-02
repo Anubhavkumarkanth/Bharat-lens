@@ -4,13 +4,9 @@ import { eq } from "drizzle-orm";
 import { extractArticleText } from "@/lib/ingestion/extract";
 import { getAiProvider } from "@/lib/ai/provider";
 
-/**
- * Grounded summarization, cached by article id (== canonical URL identity).
- * Absolute rule: never summarize from the headline alone. If article text
- * can't be retrieved, or no AI provider is configured, we persist a
- * "not grounded" row so the UI falls back to headline + source link only —
- * and so we don't keep retrying the same failing fetch every cron run.
- */
+// Summarizes from the article text only, never from the headline. If there's no
+// text or no AI key, saves grounded=false so the card shows headline + link and
+// we don't retry every run.
 export async function summarizeArticle(
   articleId: string,
   canonicalUrl: string,
@@ -22,13 +18,11 @@ export async function summarizeArticle(
     .from(articleSummaries)
     .where(eq(articleSummaries.articleId, articleId))
     .limit(1);
-  if (existing?.grounded) return; // already summarized — never re-summarize
+  if (existing?.grounded) return; // already done
 
   const extracted = await extractArticleText(canonicalUrl);
 
-  // Persist the extraction the summary is grounded in, so the in-app reader
-  // doesn't re-fetch the publisher on every view (rule 6: readers read the DB).
-  // Whether any of it is rendered is decided per source by `fullTextOk`.
+  // store the text for the reader so pages never fetch from the publisher
   if (extracted) {
     const content = {
       articleId,

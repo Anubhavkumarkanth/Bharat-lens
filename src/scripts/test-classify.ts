@@ -10,12 +10,12 @@ function check(desc: string, got: string, want: string) {
   cases.push({ desc, got, want });
 }
 
-// The substring bugs that inflated "technology" and would misroute "Indiana".
+// substring bugs ("ai" in "said", "india" in "Indiana")
 check('"said"/"again" must not match the "ai" keyword', classifyCategory("Minister said talks will begin again", null), "general");
 check('"chair" must not match "ai"', classifyCategory("Committee chair to maintain current stance", null), "general");
 check('"Indiana" must not put a US story in india-abroad', classifyScope(reuters, "Indiana factory closes after storm damage", null), "world");
 
-// True positives must still work.
+// real matches still work
 check('real "AI" story is technology', classifyCategory("New AI model beats benchmarks", null), "technology");
 check("cricket is sports", classifyCategory("India wins cricket World Cup final", null), "sports");
 check("multi-word phrase matches", classifyCategory("Stock market rallies as sensex climbs", null), "finance");
@@ -23,30 +23,25 @@ check("India keyword routes global source to india-abroad", classifyScope(reuter
 check("impact keyword routes to impact-on-india", classifyScope(reuters, "Federal Reserve holds fed rate steady", null), "impact-on-india");
 check("Indian source defaults to india scope", classifyScope(theHindu, "Monsoon session begins", null), "india");
 
-// URL section path beats headline keywords.
-// A path with no category hint and a headline with no keyword lands in general —
-// it must NOT fall through into a real category, which is what put crime and
-// weather reporting under Business & Economy.
+// URL section beats keywords, and no match at all goes to general
 check("no hint and no keyword lands in general", classifyCategory("Man stabbed to death in east Delhi", null, "https://theprint.in/india/man-stabbed/1/"), "general");
 check("sports section path classifies", classifyCategory("Late goal seals it", null, "https://apnews.com/sports/late-goal"), "sports");
 check("business section path classifies", classifyCategory("Firm names new head", null, "https://www.business-standard.com/business/firm-names-head"), "business-economy");
 check("entertainment section path classifies", classifyCategory("Star announces project", null, "https://indianexpress.com/entertainment/star-project/"), "entertainment");
 
-// Opinion detection from section path (News Report vs Opinion/Analysis).
+// opinion detection
 check("guardian commentisfree is opinion", classifyContentType("https://www.theguardian.com/commentisfree/2026/sep/06/piece"), "opinion");
 check("opinion path is opinion", classifyContentType("https://www.thehindu.com/opinion/lead/article.ece"), "opinion");
 check("plain news path is news-report", classifyContentType("https://www.thehindu.com/news/national/article.ece"), "news-report");
 
-// Foreign-desk sections: an Indian outlet's /world/ story is not India news.
+// /world/ from an Indian outlet is world news
 check("Indian source /world/ story goes to world", classifyScope(theHindu, "Nigerian families seek news from kidnappers", null, "https://theprint.in/world/nigeria-abduction/3033860"), "world");
 check("Indian source /world/ story with impact keyword goes to impact-on-india", classifyScope(theHindu, "Crude oil prices surge after OPEC decision", null, "https://theprint.in/world/opec-oil/1"), "impact-on-india");
 check("Indian source domestic story stays india", classifyScope(theHindu, "Nigerian families seek news", null, "https://www.thehindu.com/news/national/story.ece"), "india");
 check("global source /world/ story about India is india-abroad", classifyScope(reuters, "India signs trade deal", null, "https://www.reuters.com/world/india-trade-deal"), "india-abroad");
 
 let failed = 0;
-// Scope routing must work on signal, not on who published the story. Indian
-// outlets mention India constantly, so they were once blanket-routed to "india",
-// which left India Abroad and Impact on India nearly empty.
+// scope depends on the story, not on who published it
 check(
   "Indian source diaspora story goes to india-abroad",
   classifyScope(theHindu, "Indian students in Canada face new housing rules", null),

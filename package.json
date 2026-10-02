@@ -45,7 +45,7 @@
     "tsx": "^4.23.13",
     "typescript": "^5"
   },
-  "description": "India-first news reader: 17 wire and print sources, deduplicated across outlets, with grounded two-sentence summaries in English and Hindi.",
+  "description": "News reader for India: 35 wire and print sources, one card per story, short summaries in English and Hindi.",
   "license": "MIT",
   "author": "Anubhav Kumar",
   "keywords": [

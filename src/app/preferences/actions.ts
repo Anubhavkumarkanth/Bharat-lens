@@ -21,8 +21,7 @@ export async function updatePreferences(
   const visitorId = await getVisitorId();
   if (!visitorId) return { error: t("prefs.noCookie", lang) };
 
-  // savePreferences validates every id against the taxonomy, so unchecked
-  // values arriving from a hand-edited form are dropped rather than stored.
+  // savePreferences drops ids that aren't in the taxonomy
   await savePreferences(visitorId, {
     categories: formData.getAll("categories").map(String) as Category[],
     scopes: formData.getAll("scopes").map(String) as Scope[],

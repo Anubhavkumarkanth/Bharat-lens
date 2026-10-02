@@ -20,7 +20,7 @@ export interface ArticleDetail {
   grounded: boolean;
   html: string | null;
   wordCount: number;
-  /** Whether this source's config permits rendering the full text here. */
+  /** Can we show the full text for this source? */
   fullTextOk: boolean;
 }
 
@@ -57,8 +57,7 @@ export async function getArticleDetail(id: string): Promise<ArticleDetail | null
     category: row.category as Category,
     grounded: row.grounded ?? false,
     wordCount: row.wordCount ?? 0,
-    // Read from config, not the DB — rule 8, and it means revoking permission
-    // for a source is a one-line edit rather than a migration.
+    // from config, so turning it off is a one-line change
     fullTextOk: SOURCES.find((s) => s.id === row.sourceId)?.fullTextOk === true,
   };
 }

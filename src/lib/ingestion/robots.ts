@@ -2,7 +2,7 @@ import { fetchText } from "./http";
 
 export interface RobotsInfo {
   sitemaps: string[];
-  disallow: string[]; // paths disallowed for User-agent: *
+  disallow: string[]; // for User-agent: *
 }
 
 export async function fetchRobots(homepage: string): Promise<RobotsInfo> {
@@ -29,7 +29,7 @@ export async function fetchRobots(homepage: string): Promise<RobotsInfo> {
   return info;
 }
 
-/** Simple prefix + wildcard match against robots Disallow rules. */
+// Prefix + wildcard matching for Disallow rules.
 export function isDisallowed(path: string, disallow: string[]): boolean {
   return disallow.some((rule) => {
     if (rule === "/") return true;

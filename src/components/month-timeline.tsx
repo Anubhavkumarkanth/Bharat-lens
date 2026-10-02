@@ -7,16 +7,9 @@ import type { TimelineDay } from "@/lib/timeline";
 const BAR_MAX_PX = 26;
 const BAR_EMPTY_PX = 2;
 
-/**
- * Scrubbable strip of the current month. Bar height is that day's volume; an
- * accent cap marks a day the detector judged a real event. Clicking pins the
- * feed to that date.
- *
- * Every day of the month is drawn, including ones with nothing in them — the
- * query only returns days that have articles, and rendering just those turned a
- * quiet month into a couple of chunky tiles floating in space with no sense of
- * where in the month they sat.
- */
+// One bar per day of the month (height = volume, highlighted = big news day).
+// Clicking a day filters the feed to it. Empty days are drawn too so the month
+// keeps its shape.
 export function MonthTimeline({
   days,
   lang,
@@ -25,7 +18,7 @@ export function MonthTimeline({
 }: {
   days: TimelineDay[];
   lang: Lang;
-  /** YYYY-MM-DD, read once per request on the server so this stays pure. */
+  /** YYYY-MM-DD, passed in from the server */
   today: string;
   activeDay?: string;
 }) {
@@ -38,7 +31,7 @@ export function MonthTimeline({
   const byDate = new Map(days.map((d) => [d.date, d]));
   const month = days[0].date.slice(0, 7); // YYYY-MM
   const [year, monthIndex] = month.split("-").map(Number);
-  // Day 0 of the next month is the last day of this one.
+  // day 0 of next month = last day of this one
   const daysInMonth = new Date(Date.UTC(year, monthIndex, 0)).getUTCDate();
 
   const peak = Math.max(...days.map((d) => d.count), 1);
@@ -85,7 +78,7 @@ export function MonthTimeline({
           const isToday = date === today;
           const empty = count === 0;
 
-          // Label only the anchors — every number turns the strip into noise.
+          // only label a few days
           const labelled = dayNumber === 1 || dayNumber % 5 === 0 || isToday || active;
 
           return (
@@ -95,15 +88,15 @@ export function MonthTimeline({
               onClick={() => !empty && select(date)}
               disabled={empty}
               aria-pressed={active}
-              aria-label={`${date}${data ? ` — ${count} ${t("timeline.stories", lang)}` : ""}`}
+              aria-label={`${date}${data ? `: ${count} ${t("timeline.stories", lang)}` : ""}`}
               title={
                 data?.headline
-                  ? `${date} — ${data.headline}`
+                  ? `${date}: ${data.headline}`
                   : `${date} · ${count} ${t("timeline.stories", lang)}`
               }
               className="group shrink-0 flex flex-col items-center gap-1 w-2.5 disabled:cursor-default"
             >
-              {/* Reserved space keeps every bar sitting on the same baseline. */}
+              {/* keeps bars on the same baseline */}
               <span
                 className={`h-1 w-1 rounded-full transition-colors ${
                   data?.special ? "bg-accent" : "bg-transparent"

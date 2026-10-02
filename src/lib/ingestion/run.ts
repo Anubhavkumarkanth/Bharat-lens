@@ -12,7 +12,7 @@ import { titleTokens, jaccardSimilarity, SAME_STORY_THRESHOLD } from "@/lib/rank
 import { summarizeArticle } from "@/lib/summarize";
 import { normalizeText } from "./entities";
 
-const MAX_SUMMARIZE_PER_SOURCE_RUN = 8; // bounds cron execution time / AI spend per run
+const MAX_SUMMARIZE_PER_SOURCE_RUN = 8; // keeps run time and AI cost down
 const MAX_TITLE_FETCHES_PER_RUN = 40; // sitemaps without <news:title> cost one fetch per article
 
 async function fetchPageTitle(url: string): Promise<string | null> {
@@ -34,9 +34,8 @@ async function itemsFromSource(
     return { items: parseFeed(xml), method: discovered.method, feedUrl: discovered.feedUrl };
   }
 
-  // Sitemap path: entries may lack a title (no <news:title>) — resolve via a cheap
-  // <title> fetch. That's one request per article, so only the newest slice is
-  // resolved per run; the rest are picked up on later runs as they stay in the sitemap.
+  // Sitemap entries without <news:title> need a fetch each to get the title, so
+  // only the newest few are done per run. The rest get picked up later.
   const sitemapItems = await fetchSitemapItems(discovered.feedUrl);
   const withTitles = sitemapItems.filter((e) => e.title);
   const needTitle = sitemapItems.filter((e) => !e.title).slice(0, MAX_TITLE_FETCHES_PER_RUN);
@@ -58,11 +57,8 @@ async function itemsFromSource(
   return { items, method: discovered.method, feedUrl: discovered.feedUrl };
 }
 
-/**
- * In-memory clustering candidates for one ingestion run. Loaded once up front
- * and appended to as articles are inserted — querying per article turned every
- * insert into a full 48h scan of the table.
- */
+// Recent articles for clustering, loaded once per run and added to as we go.
+// Querying for every insert was a 48h table scan each time.
 interface ClusterCandidate {
   scope: string;
   sourceId: string;
@@ -89,16 +85,8 @@ async function loadClusterCandidates(): Promise<ClusterCandidate[]> {
   }));
 }
 
-/**
- * A cluster is "one story, several outlets", so an outlet may appear in it only
- * once. Without that rule, title similarity happily merges a publisher's own
- * near-identical headlines: AP's regional "Sportswatch Daily Listings" filings
- * collapsed fifteen separate articles into a single card, hiding fourteen of
- * them from the feed entirely and rendering "Also reported by AP, AP, AP".
- *
- * Same-URL duplicates are already handled upstream by canonical-URL identity;
- * this is the only guard clustering itself needs.
- */
+// An outlet can only be in a cluster once. Without this, AP's similar
+// "Sportswatch Daily Listings" headlines merged 15 articles into one card.
 async function findOrCreateCluster(
   candidates: ClusterCandidate[],
   scope: string,
@@ -138,8 +126,7 @@ async function ingestSource(
 
   const isFirstScan = !dbSource?.baselineDone;
 
-  // The source row must exist before any article can reference it (FK), so
-  // upsert its config now and record scan state at the end of the run.
+  // upsert the source row first (articles reference it)
   await db
     .insert(sources)
     .values({ ...source, baselineDone: dbSource?.baselineDone ?? false })
@@ -169,7 +156,7 @@ async function ingestSource(
       .from(articles)
       .where(eq(articles.canonicalUrl, canonicalUrl))
       .limit(1);
-    if (existing) continue; // already ingested this exact story from this URL
+    if (existing) continue; // already have this URL
 
     const scope = classifyScope(source, item.title, item.excerpt, canonicalUrl);
     const category = classifyCategory(item.title, item.excerpt, canonicalUrl);
@@ -208,9 +195,8 @@ async function ingestSource(
     })
     .where(eq(sources.id, source.id));
 
-  // Summarize sequentially to stay within a predictable, boundable request budget
-  // per source, and stop as soon as the run is out of time. Each call fetches the
-  // article body, so this is the slow part of the pipeline by a wide margin.
+  // One at a time, and stop when out of time. This is the slowest part since
+  // each one fetches the article.
   for (const item of toSummarize) {
     if (Date.now() > deadline) break;
     await summarizeArticle(item.id, item.url, item.title, source.name);
@@ -219,30 +205,19 @@ async function ingestSource(
   return { sourceId: source.id, inserted };
 }
 
-/**
- * How long a run may take before it stops starting new work. Vercel's Hobby
- * plan hard-kills a function at 300s, and a full pass over every source takes
- * far longer than that now that each summarized article also has its body
- * fetched and stored for the reader. Left unbounded, the platform kills the run
- * mid-flight and whatever had not been written is simply lost.
- */
+// Stop starting new work after this. Vercel Hobby kills functions at 300s and a
+// full run takes much longer.
 const DEFAULT_RUN_BUDGET_MS = 240_000;
 
-/**
- * Sources are processed least-recently-scanned first.
- *
- * This is what makes the deadline safe. A fixed order plus a deadline starves
- * the tail of the list forever — the same sources would be reached every run and
- * the last few never would. Ordering by `lastScannedAt` means whatever got cut
- * off is first in line next time, so coverage evens out across runs on its own.
- */
+// Least recently scanned first, so sources cut off by the deadline go first
+// next time. A fixed order would never reach the end of the list.
 async function sourcesByStaleness(): Promise<SourceConfig[]> {
   const scanned = await db
     .select({ id: sources.id, lastScannedAt: sources.lastScannedAt })
     .from(sources);
   const lastScan = new Map(scanned.map((r) => [r.id, r.lastScannedAt?.getTime() ?? 0]));
 
-  // Never scanned sorts to 0, so a newly added source goes first.
+  // never scanned = 0, so new sources go first
   return [...SOURCES].sort((a, b) => (lastScan.get(a.id) ?? 0) - (lastScan.get(b.id) ?? 0));
 }
 
@@ -255,8 +230,7 @@ export async function ingestAll(
 
   for (const source of await sourcesByStaleness()) {
     if (Date.now() > deadline) {
-      // Reported rather than silently dropped, so a run that keeps running out
-      // of time is visible in the cron response instead of looking healthy.
+      // listed in the response so timeouts are visible
       results.push({ sourceId: source.id, inserted: 0, skipped: true });
       continue;
     }

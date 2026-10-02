@@ -12,7 +12,7 @@ interface ActionState {
   saved: boolean;
 }
 
-/** 20px stroke icons, sized to the text they sit beside. */
+// small line icons
 const ICONS: Record<string, React.ReactNode> = {
   like: <path d="M12 20.5 4.8 13.3a4.5 4.5 0 0 1 6.4-6.3l.8.8.8-.8a4.5 4.5 0 1 1 6.4 6.3z" />,
   interested: <path d="M7 21V10m0 0 4-7a2 2 0 0 1 3 2l-1 5h5a2 2 0 0 1 2 2.4l-1.4 7A2 2 0 0 1 16.6 21z" />,
@@ -66,13 +66,8 @@ function ActionButton({
   );
 }
 
-/**
- * One row, four actions, shared by the feed card and the reader page.
- *
- * Everyone can use them — there are no accounts, so there is no signed-out
- * state to gate. State flips locally on click and the server action revalidates
- * behind it, so the row never sits wrong during the round trip.
- */
+// Like / interested / not interested / save, used on cards and in the reader.
+// Updates locally right away, then the server action runs.
 export function ArticleActions({
   articleId,
   lang,
