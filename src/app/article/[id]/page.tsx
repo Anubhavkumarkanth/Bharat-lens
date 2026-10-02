@@ -18,9 +18,8 @@ export async function generateMetadata(props: PageProps<"/article/[id]">): Promi
   if (!article) return {};
 
   return {
-    title: `${article.title} — Bharat Lens`,
-    // The publisher wrote this, not us. Point search engines at their copy and
-    // keep ours out of the index entirely.
+    title: `${article.title} | Bharat Lens`,
+    // not our article: noindex, canonical to the publisher
     alternates: { canonical: article.canonicalUrl },
     robots: { index: false, follow: false },
   };
@@ -47,7 +46,7 @@ export default async function ArticlePage(props: PageProps<"/article/[id]">) {
 
   const categoryLabel = t(`category.${article.category}` as UiStringKey, lang);
 
-  // Sanitize first, then decide how much of it the source's config permits.
+  // sanitize, then cut to what the source allows
   const clean = article.html ? sanitizeArticleHtml(article.html, article.canonicalUrl) : null;
   const body = clean ? (article.fullTextOk ? clean : leadIn(clean)) : null;
 
@@ -98,9 +97,7 @@ export default async function ArticlePage(props: PageProps<"/article/[id]">) {
         <p className="text-muted italic">{t("reader.noContent", lang)}</p>
       )}
 
-      {/* The hand-off. The copyright wording only makes sense when there IS an
-          opening to have shown — with no stored text at all, it would be
-          claiming to have given the reader something it didn't. */}
+      {/* Only show the copyright note if we actually showed some text. */}
       {body && !article.fullTextOk ? (
         <aside className="mt-10 rounded-2xl border border-border bg-accent-soft/60 p-5">
           <p className="font-medium mb-1.5">{t("reader.copyrightTitle", lang)}</p>
@@ -109,7 +106,7 @@ export default async function ArticlePage(props: PageProps<"/article/[id]">) {
             href={article.canonicalUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-full bg-accent hover:bg-accent-hover text-white px-4 py-2 text-sm font-medium transition-colors"
+            className="inline-flex items-center gap-1.5 rounded-full bg-accent hover:bg-accent-hover text-on-accent px-4 py-2 text-sm font-medium transition-colors"
           >
             {t("reader.continueAt", lang)} {article.sourceName} →
           </a>
@@ -119,7 +116,7 @@ export default async function ArticlePage(props: PageProps<"/article/[id]">) {
           href={article.canonicalUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-8 inline-flex items-center gap-1.5 rounded-full bg-accent hover:bg-accent-hover text-white px-4 py-2 text-sm font-medium transition-colors"
+          className="mt-8 inline-flex items-center gap-1.5 rounded-full bg-accent hover:bg-accent-hover text-on-accent px-4 py-2 text-sm font-medium transition-colors"
         >
           {t("reader.continueAt", lang)} {article.sourceName} →
         </a>

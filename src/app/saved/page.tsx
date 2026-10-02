@@ -20,8 +20,7 @@ export default async function SavedPage(props: PageProps<"/saved">) {
   const view: SavedView = VIEWS.includes(rawView as SavedView) ? (rawView as SavedView) : "active";
   const collectionId = typeof searchParams.collection === "string" ? searchParams.collection : undefined;
 
-  // No sign-in gate any more: with no cookie there is nothing saved yet, which
-  // is the same empty state as a reader who hasn't saved anything.
+  // no cookie = nothing saved yet
   const [collections, items] = visitorId
     ? await Promise.all([
         listCollections(visitorId),
@@ -67,7 +66,7 @@ export default async function SavedPage(props: PageProps<"/saved">) {
             href={href({ collection: undefined })}
             className={`px-3.5 py-1.5 rounded-full text-sm border transition-all duration-200 ${
               !collectionId
-                ? "bg-accent text-white border-accent shadow-card"
+                ? "bg-accent text-on-accent border-accent shadow-card"
                 : "border-border text-muted hover:text-foreground hover:border-border-strong"
             }`}
           >
@@ -78,7 +77,7 @@ export default async function SavedPage(props: PageProps<"/saved">) {
               key={c.id}
               className={`inline-flex items-center gap-2 pl-3.5 pr-2 py-1.5 rounded-full text-sm border ${
                 collectionId === c.id
-                  ? "bg-accent text-white border-accent shadow-card"
+                  ? "bg-accent text-on-accent border-accent shadow-card"
                   : "border-border text-muted"
               }`}
             >

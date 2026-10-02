@@ -2,41 +2,53 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-/*
- * Terracotta stays — it's the one thing that makes this look Indian rather than
- * like every other news reader. Everything around it got quieter and softer so
- * the accent does more work with less of it.
- */
+/* Cool newsprint greys with a peacock-teal accent. */
 :root {
-  --background: #faf8f5;
+  --background: #f4f5f7;
   --surface: #ffffff;
-  --surface-hover: #fdfbf8;
-  --foreground: #17161a;
-  --muted: #6a6873;
-  --border: #e8e4dd;
-  --border-strong: #d6d0c6;
-  --accent: #c14a1e;
-  --accent-hover: #a63d16;
-  --accent-soft: #fbeee7;
-  --ring: #c14a1e;
-  --shadow-card: 0 1px 2px rgb(23 22 26 / 0.04), 0 8px 24px -12px rgb(23 22 26 / 0.12);
-  --shadow-lift: 0 2px 4px rgb(23 22 26 / 0.05), 0 16px 40px -16px rgb(23 22 26 / 0.2);
+  --surface-hover: #f9fafb;
+  --foreground: #14171c;
+  --muted: #5b6270;
+  --border: #e2e5ea;
+  --border-strong: #cdd2da;
+  --accent: #0b6e74;
+  --accent-hover: #08595e;
+  --accent-soft: #e2f0f0;
+  --on-accent: #ffffff;
+  --ring: #0b6e74;
+  --shadow-card: 0 1px 2px rgb(20 23 28 / 0.05), 0 6px 18px -10px rgb(20 23 28 / 0.12);
+  --shadow-lift: 0 2px 4px rgb(20 23 28 / 0.06), 0 14px 32px -14px rgb(20 23 28 / 0.2);
+  /* Chart colours for /insights. Order matters: checked for colour-blind
+     contrast between neighbours. */
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  /* Source health status. */
+  --status-good: #0ca30c;
+  --status-warning: #fab219;
+  --status-critical: #d03b3b;
 }
 
 .dark {
-  --background: #100f13;
-  --surface: #1a191f;
-  --surface-hover: #211f28;
-  --foreground: #edeaf0;
-  --muted: #9d99a8;
-  --border: #2b2933;
-  --border-strong: #3d3a47;
-  --accent: #f08a5d;
-  --accent-hover: #f7a077;
-  --accent-soft: #2a1a14;
-  --ring: #f08a5d;
-  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px -12px rgb(0 0 0 / 0.5);
-  --shadow-lift: 0 2px 4px rgb(0 0 0 / 0.35), 0 16px 40px -16px rgb(0 0 0 / 0.65);
+  --background: #0f1113;
+  --surface: #171a1d;
+  --surface-hover: #1d2124;
+  --foreground: #e7e9ec;
+  --muted: #9aa1a9;
+  --border: #262b30;
+  --border-strong: #353b41;
+  --accent: #2aa5a3;
+  --accent-hover: #45b9b6;
+  --accent-soft: #0f2627;
+  --on-accent: #0f1113;
+  --ring: #2aa5a3;
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 6px 18px -10px rgb(0 0 0 / 0.5);
+  --shadow-lift: 0 2px 4px rgb(0 0 0 / 0.35), 0 14px 32px -14px rgb(0 0 0 / 0.6);
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
 }
 
 @theme inline {
@@ -50,6 +62,7 @@
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
   --color-accent-soft: var(--accent-soft);
+  --color-on-accent: var(--on-accent);
   --font-serif: var(--font-source-serif);
   --font-sans: var(--font-geist-sans);
   --shadow-card: var(--shadow-card);
@@ -63,14 +76,13 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-/* Headlines carry the credibility; tighten them so they read as set type. */
+/* Tighter headline spacing. */
 .font-serif {
   letter-spacing: -0.015em;
 }
 
-/* One visible focus treatment for every interactive element. The category and
-   scope chips hide their real checkbox for styling, so without this they are
-   entirely unreachable by keyboard. */
+/* Focus ring for everything. The chips hide their checkbox, so they need this
+   for keyboard users. */
 :where(a, button, input, select, textarea, summary):focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
@@ -81,8 +93,7 @@ body {
   outline-offset: 2px;
 }
 
-/* Feed cards animate in on first paint, staggered by index. Purely additive —
-   the content is server-rendered and readable with animations off. */
+/* Cards fade in one after another on first load. */
 @keyframes rise-in {
   from {
     opacity: 0;
@@ -98,8 +109,7 @@ body {
   animation: rise-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 
-/* View Transitions: a directional slide between scopes and a crossfade for
-   filter changes. React names the elements; these rules time them. */
+/* View transitions: slide between scopes, crossfade on filter changes. */
 ::view-transition-old(root) {
   animation: fade-out 0.18s ease-out both;
 }
@@ -124,8 +134,7 @@ html {
   scroll-behavior: smooth;
 }
 
-/* Everything above is decoration. Anyone who has asked their OS to stop moving
-   things gets none of it. */
+/* Turn the animations off for reduced motion. */
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
@@ -143,10 +152,7 @@ html {
   }
 }
 
-/*
- * Reader typography. The markup comes from the publisher via the sanitizer, so
- * it can't carry classes — these are element rules scoped to .reader-body.
- */
+/* Reader styles. Publisher HTML has no classes, so these target elements. */
 .reader-body > * + * {
   margin-top: 1.15em;
 }
@@ -224,8 +230,7 @@ html {
   text-align: left;
 }
 
-/* Horizontal strips (scopes, category chips, the month timeline) scroll on
-   touch without a scrollbar cutting into the layout. */
+/* Hide scrollbars on the horizontal strips (tabs, chips, timeline). */
 .scrollbar-none {
   scrollbar-width: none;
 }
