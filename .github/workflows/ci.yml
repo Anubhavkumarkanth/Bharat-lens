@@ -29,8 +29,8 @@ jobs:
       - name: Typecheck
         run: npx tsc --noEmit
 
-      - name: Classifier assertions
-        run: npm run test:classify
+      - name: Assertions
+        run: npm test
 
       # no DATABASE_URL on purpose, the build should work without any keys
       - name: Build

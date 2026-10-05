@@ -2,6 +2,7 @@ import { searchArticles } from "@/lib/query";
 import { getLang } from "@/lib/lang";
 import { t } from "@/config/ui-strings";
 import { getVisitorId } from "@/lib/visitor";
+import { tryDb } from "@/lib/db/availability";
 import { getSavedArticleIds } from "@/lib/saved";
 import { getReactionsFor, NO_REACTION } from "@/lib/reactions";
 import { requestNow } from "@/lib/clock";
@@ -15,7 +16,16 @@ export default async function SearchPage(props: PageProps<"/search">) {
   const query = typeof searchParams.q === "string" ? searchParams.q : "";
 
   const now = requestNow();
-  const stories = query ? await searchArticles(query, now) : [];
+  const stories = query ? await tryDb(() => searchArticles(query, now)) : [];
+
+  if (stories === null) {
+    return (
+      <div className="text-center py-24 text-muted flex flex-col items-center gap-2">
+        <p className="text-foreground">{t("state.offline", lang)}</p>
+        <p className="text-sm">{t("state.offlineHint", lang)}</p>
+      </div>
+    );
+  }
 
   const visitorId = await getVisitorId();
   const [savedIds, reactions] = await Promise.all([

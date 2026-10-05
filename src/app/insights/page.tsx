@@ -5,6 +5,7 @@ import { t, UI_STRINGS, type Lang, type UiStringKey } from "@/config/ui-strings"
 import { requestNow } from "@/lib/clock";
 import { INSIGHT_WINDOWS, MIN_SAMPLE, type InsightWindow } from "@/config/insights";
 import { AnalyticsNotInstalledError, getInsights, type Insights } from "@/lib/insights";
+import { isDatabaseUnreachable } from "@/lib/db/availability";
 import {
   count,
   DataTable,
@@ -41,6 +42,16 @@ export default async function InsightsPage(props: PageProps<"/insights">) {
     insights = await getInsights(windowDays, now);
   } catch (error) {
     if (error instanceof AnalyticsNotInstalledError) return <NotInstalled lang={lang} />;
+    // A paused database is an outage, not a missing migration — telling the
+    // reader to install the analytics views would send them after the wrong fix.
+    if (isDatabaseUnreachable(error)) {
+      return (
+        <div className="text-center py-24 text-muted flex flex-col items-center gap-2">
+          <p className="text-foreground">{t("state.offline", lang)}</p>
+          <p className="text-sm">{t("state.offlineHint", lang)}</p>
+        </div>
+      );
+    }
     throw error;
   }
 

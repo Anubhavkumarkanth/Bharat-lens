@@ -40,6 +40,8 @@ export const UI_STRINGS = {
   "state.newsReport": { en: "News Report", hi: "समाचार रिपोर्ट" },
   "state.headlineOnly": { en: "No summary for this one. Read the original for the full story.", hi: "इस खबर का सार नहीं है। पूरी खबर सोर्स पर पढ़ें।" },
   "state.forYouNoPrefs": { en: "Pick a few categories in Preferences to fill this feed.", hi: "यह फ़ीड भरने के लिए प्राथमिकताओं में कुछ श्रेणियाँ चुनें।" },
+  "state.offline": { en: "Can't reach the news right now.", hi: "अभी खबरें नहीं मिल पा रहीं।" },
+  "state.offlineHint": { en: "The database is unavailable. Nothing is lost — try again in a moment.", hi: "डेटाबेस उपलब्ध नहीं है। कुछ खोया नहीं है — थोड़ी देर में फिर कोशिश करें।" },
   "state.emptyWiden": { en: "Look further back", hi: "और पीछे तक देखें" },
   "state.emptyClearCategory": { en: "Show all categories", hi: "सभी श्रेणियाँ दिखाएँ" },
   "state.emptyClearDay": { en: "Show the whole month", hi: "पूरा महीना दिखाएँ" },

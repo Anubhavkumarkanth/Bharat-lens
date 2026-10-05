@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getArticleDetail } from "@/lib/article";
 import { leadIn, readingMinutes, sanitizeArticleHtml } from "@/lib/sanitize";
 import { getVisitorId } from "@/lib/visitor";
+import { tryDb } from "@/lib/db/availability";
 import { getReactionsFor, NO_REACTION } from "@/lib/reactions";
 import { getSavedArticleIds } from "@/lib/saved";
 import { getOrTranslateSummary } from "@/lib/translate";
@@ -14,7 +15,9 @@ export const dynamic = "force-dynamic";
 
 export async function generateMetadata(props: PageProps<"/article/[id]">): Promise<Metadata> {
   const { id } = await props.params;
-  const article = await getArticleDetail(id);
+  // Runs before the page body, so an unguarded throw here 500s the route no
+  // matter how carefully the body degrades.
+  const article = await tryDb(() => getArticleDetail(id));
   if (!article) return {};
 
   return {
@@ -27,17 +30,33 @@ export async function generateMetadata(props: PageProps<"/article/[id]">): Promi
 
 export default async function ArticlePage(props: PageProps<"/article/[id]">) {
   const { id } = await props.params;
-  const article = await getArticleDetail(id);
+  const lang = await getLang();
+
+  // Wrapped in an object so "database unreachable" (null from tryDb) stays
+  // distinguishable from "no such article" (null inside it). Collapsing the two
+  // would answer 404 during an outage, telling readers and search engines the
+  // article does not exist when it does.
+  const found = await tryDb(async () => ({ article: await getArticleDetail(id) }));
+
+  if (found === null) {
+    return (
+      <div className="text-center py-24 text-muted flex flex-col items-center gap-2">
+        <p className="text-foreground">{t("state.offline", lang)}</p>
+        <p className="text-sm">{t("state.offlineHint", lang)}</p>
+      </div>
+    );
+  }
+
+  const article = found.article;
   if (!article) notFound();
 
-  const lang = await getLang();
   const visitorId = await getVisitorId();
 
   const [reactions, savedIds] = await Promise.all([
-    visitorId ? getReactionsFor(visitorId, [article.id]) : Promise.resolve(new Map()),
-    visitorId ? getSavedArticleIds(visitorId) : Promise.resolve(new Set<string>()),
+    visitorId ? tryDb(() => getReactionsFor(visitorId, [article.id])) : null,
+    visitorId ? tryDb(() => getSavedArticleIds(visitorId)) : null,
   ]);
-  const reaction = reactions.get(article.id) ?? NO_REACTION;
+  const reaction = reactions?.get(article.id) ?? NO_REACTION;
 
   const summary =
     lang === "hi" && article.grounded && article.summaryEn
@@ -83,7 +102,7 @@ export default async function ArticlePage(props: PageProps<"/article/[id]">) {
           initial={{
             liked: reaction.liked,
             interest: reaction.interest,
-            saved: savedIds.has(article.id),
+            saved: savedIds?.has(article.id) ?? false,
           }}
         />
       </div>

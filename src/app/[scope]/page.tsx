@@ -1,10 +1,17 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SCOPES, type Scope, type Category } from "@/config/taxonomy";
-import { PAGE_SIZE, queryArticles, type RangeOption, type SortOption } from "@/lib/query";
+import {
+  PAGE_SIZE,
+  queryArticles,
+  type RangeOption,
+  type SortOption,
+  type StoryCard,
+} from "@/lib/query";
 import { getLang } from "@/lib/lang";
 import { t } from "@/config/ui-strings";
 import { getVisitorId } from "@/lib/visitor";
+import { tryDb } from "@/lib/db/availability";
 import { DEFAULT_PREFERENCES, SOURCE_SCOPES, getPreferences } from "@/lib/preferences";
 import { getSavedArticleIds } from "@/lib/saved";
 import { getInterestProfile, getReactionsFor, NO_REACTION } from "@/lib/reactions";
@@ -34,7 +41,8 @@ export default async function ScopePage(props: PageProps<"/[scope]">) {
 
   const lang = await getLang();
   const visitorId = await getVisitorId();
-  const prefs = visitorId ? await getPreferences(visitorId) : DEFAULT_PREFERENCES;
+  const prefs =
+    (visitorId ? await tryDb(() => getPreferences(visitorId)) : null) ?? DEFAULT_PREFERENCES;
 
   const category = typeof searchParams.category === "string" ? (searchParams.category as Category) : undefined;
   // URL params first, then saved preferences, then defaults
@@ -55,7 +63,7 @@ export default async function ScopePage(props: PageProps<"/[scope]">) {
     );
   }
 
-  const interest = visitorId ? await getInterestProfile(visitorId) : null;
+  const interest = visitorId ? await tryDb(() => getInterestProfile(visitorId)) : null;
 
   // the timeline uses the same scopes as the feed
   const feedScopes = scopeConfig.personal
@@ -64,37 +72,45 @@ export default async function ScopePage(props: PageProps<"/[scope]">) {
       : SOURCE_SCOPES
     : [scope as Scope];
 
-  const timeline = await getMonthTimeline(feedScopes, currentMonthStartUtc());
+  const timeline = (await tryDb(() => getMonthTimeline(feedScopes, currentMonthStartUtc()))) ?? [];
 
   // For You is the normal feed query with the reader's scopes and categories
-  let stories = scopeConfig.personal
-    ? await queryArticles({
-        scope: feedScopes,
-        category: category ?? prefs.categories,
-        sort,
-        range,
-        day,
-        page,
-        excludeArticleIds: interest?.excludedArticleIds,
-      })
-    : await queryArticles({ scope: scope as Scope, category, sort, range, day, page });
+  // null here means the database could not be reached, which is a different
+  // thing from an empty result and must not be reported as "no stories".
+  let stories = await tryDb(() =>
+    scopeConfig.personal
+      ? queryArticles({
+          scope: feedScopes,
+          category: category ?? prefs.categories,
+          sort,
+          range,
+          day,
+          page,
+          excludeArticleIds: interest?.excludedArticleIds,
+        })
+      : queryArticles({ scope: scope as Scope, category, sort, range, day, page })
+  );
+
+  if (stories === null) {
+    return (
+      <Notice>
+        <p className="text-foreground">{t("state.offline", lang)}</p>
+        <p className="text-sm">{t("state.offlineHint", lang)}</p>
+      </Notice>
+    );
+  }
 
   // Move "interested" categories/outlets to the top, keeping the sort order
   // within each group.
   if (scopeConfig.personal && interest) {
-    const boosted = (s: (typeof stories)[number]) =>
+    const boosted = (s: StoryCard) =>
       interest.boostedCategories.has(s.category) || interest.boostedSources.has(s.sourceId);
     stories = [...stories.filter(boosted), ...stories.filter((s) => !boosted(s))];
   }
 
   const [savedIds, reactions] = await Promise.all([
-    visitorId ? getSavedArticleIds(visitorId) : Promise.resolve(new Set<string>()),
-    visitorId
-      ? getReactionsFor(
-          visitorId,
-          stories.map((s) => s.id)
-        )
-      : Promise.resolve(new Map()),
+    visitorId ? tryDb(() => getSavedArticleIds(visitorId)) : null,
+    visitorId ? tryDb(() => getReactionsFor(visitorId, stories.map((s) => s.id))) : null,
   ]);
 
   // same "now" for every card
@@ -155,8 +171,8 @@ export default async function ScopePage(props: PageProps<"/[scope]">) {
               lang={lang}
               now={now}
               index={index}
-              saved={savedIds.has(story.id)}
-              reaction={reactions.get(story.id) ?? NO_REACTION}
+              saved={savedIds?.has(story.id) ?? false}
+              reaction={reactions?.get(story.id) ?? NO_REACTION}
             />
           ))}
         </div>

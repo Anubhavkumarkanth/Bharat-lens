@@ -62,26 +62,36 @@ These are product rules, not preferences. Do not relax them.
 
 ## Build and tooling constraints
 
-13. **Clock reads live in `src/lib/clock.ts`.** `react-hooks/purity` fails the build
+13. **An unreachable database degrades, it does not 500.** Rule 1's contract
+    applies to Postgres too: when the Supabase project paused after a week idle,
+    every page returned a stack trace. Page-level reads go through `tryDb`
+    (`src/lib/db/availability.ts`), which returns null only for *connection*
+    failures and rethrows everything else — a bad column or a missing view must
+    still fail loudly. Note that drizzle wraps the real error in a
+    `DrizzleQueryError` and keeps the cause on `.cause`, so the detector walks
+    that chain; checking only the outer error silently matches nothing.
+    `null` from `tryDb` means "could not ask" and must never be rendered as
+    "nothing found".
+14. **Clock reads live in `src/lib/clock.ts`.** `react-hooks/purity` fails the build
     on `Date.now()` inside a component body, Server Components included. Read once
     per request there and pass the value down.
-14. **`drizzle-kit push` crashes on this database** (0.31.10 bug introspecting an
+15. **`drizzle-kit push` crashes on this database** (0.31.10 bug introspecting an
     existing CHECK constraint). Use `drizzle-kit generate` and apply the new
     statements with guarded SQL — never let it try to reconcile the whole schema.
-15. **The cron is daily, not 3-hourly, because of the Vercel plan.** Hobby caps cron
+16. **The cron is daily, not 3-hourly, because of the Vercel plan.** Hobby caps cron
     at once per day and *fails the deployment* for any more frequent expression, so
     `vercel.json` uses `0 1 * * *`. To ingest more often without paying, keep this
     entry and have an external scheduler hit `/api/cron/ingest` with
     `Authorization: Bearer $CRON_SECRET`. Do not raise the frequency here on Hobby.
-16. **Next.js 16 specifics**: `params`, `searchParams` and `cookies()` are async;
+17. **Next.js 16 specifics**: `params`, `searchParams` and `cookies()` are async;
     `middleware` is renamed `proxy`; `revalidateTag` needs a second cacheLife
     argument. Read `node_modules/next/dist/docs/` rather than relying on training
     data.
-17. **The DB client is lazily constructed** (`lib/db/client.ts`). Next evaluates
+18. **The DB client is lazily constructed** (`lib/db/client.ts`). Next evaluates
     route modules during build-time page-data collection even for `force-dynamic`
     routes, so throwing on a missing `DATABASE_URL` at import time breaks
     `next build`.
-18. **Server-only imports leak through client components.** `lib/lang.ts` imports
+19. **Server-only imports leak through client components.** `lib/lang.ts` imports
     `next/headers`; the cookie *name* lives in `lib/lang-constants.ts` so client
     components can import it without pulling in the server module. Same pattern for
     `lib/visitor.ts` and `lib/visitor-constants.ts`.
@@ -102,7 +112,7 @@ npm run reclassify       # re-run classification over stored rows
 npm run recluster        # rebuild story clusters over stored rows
 npm run decode-entities  # normalize stored titles, excerpts and bylines
 npm run resummarize      # re-summarize stored rows
-npm run test:classify    # classifier assertions
+npm test                 # all assertion suites (classifier + db availability)
 npm run debug-source <source-id>
 
 pytest analysis                       # analysis unit tests (pip install -r analysis/requirements.txt)

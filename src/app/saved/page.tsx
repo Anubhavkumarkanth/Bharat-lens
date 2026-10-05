@@ -1,6 +1,13 @@
 import Link from "next/link";
 import { getVisitorId } from "@/lib/visitor";
-import { listCollections, listSaved, type SavedView } from "@/lib/saved";
+import { tryDb } from "@/lib/db/availability";
+import {
+  listCollections,
+  listSaved,
+  type Collection,
+  type SavedItem,
+  type SavedView,
+} from "@/lib/saved";
 import { deleteCollection } from "@/app/saved/actions";
 import { getLang } from "@/lib/lang";
 import { t, type UiStringKey } from "@/config/ui-strings";
@@ -21,12 +28,27 @@ export default async function SavedPage(props: PageProps<"/saved">) {
   const collectionId = typeof searchParams.collection === "string" ? searchParams.collection : undefined;
 
   // no cookie = nothing saved yet
-  const [collections, items] = visitorId
-    ? await Promise.all([
-        listCollections(visitorId),
-        listSaved(visitorId, { view, collectionId }),
-      ])
-    : [[], []];
+  const fetched = visitorId
+    ? await tryDb(() =>
+        Promise.all([
+          listCollections(visitorId),
+          listSaved(visitorId, { view, collectionId }),
+        ])
+      )
+    : ([[], []] as [Collection[], SavedItem[]]);
+
+  // null means the database is unreachable — saying "nothing saved" there would
+  // tell the reader their saves are gone when they are simply unreadable.
+  if (fetched === null) {
+    return (
+      <div className="text-center py-24 text-muted flex flex-col items-center gap-2">
+        <p className="text-foreground">{t("state.offline", lang)}</p>
+        <p className="text-sm">{t("state.offlineHint", lang)}</p>
+      </div>
+    );
+  }
+
+  const [collections, items] = fetched;
 
   function href(next: { view?: SavedView; collection?: string }) {
     const params = new URLSearchParams();
