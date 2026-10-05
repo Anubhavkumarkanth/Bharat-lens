@@ -8,7 +8,7 @@ import { parseFeed, type FeedItem } from "./feed-parser";
 import { fetchSitemapItems } from "./sitemap-parser";
 import { canonicalizeUrl } from "./canonical";
 import { classifyCategory, classifyContentType, classifyScope } from "@/lib/scope-category/classify";
-import { titleTokens, jaccardSimilarity, SAME_STORY_THRESHOLD } from "@/lib/ranking/similarity";
+import { titleTokens, chooseCluster, type ClusterCandidate } from "@/lib/ranking/similarity";
 import { summarizeArticle } from "@/lib/summarize";
 import { normalizeText } from "./entities";
 
@@ -59,13 +59,6 @@ async function itemsFromSource(
 
 // Recent articles for clustering, loaded once per run and added to as we go.
 // Querying for every insert was a 48h table scan each time.
-interface ClusterCandidate {
-  scope: string;
-  sourceId: string;
-  tokens: Set<string>;
-  clusterId: string;
-}
-
 async function loadClusterCandidates(): Promise<ClusterCandidate[]> {
   const since = new Date(Date.now() - 48 * 60 * 60 * 1000);
   const recent = await db
@@ -85,8 +78,12 @@ async function loadClusterCandidates(): Promise<ClusterCandidate[]> {
   }));
 }
 
-// An outlet can only be in a cluster once. Without this, AP's similar
-// "Sportswatch Daily Listings" headlines merged 15 articles into one card.
+/**
+ * Resolves the cluster for one article, creating it if new. The decision lives
+ * in chooseCluster (src/lib/ranking/similarity.ts) so ingestion and the
+ * recluster script share one implementation; this only adds the DB write and
+ * records the placement so the next article sees it.
+ */
 async function findOrCreateCluster(
   candidates: ClusterCandidate[],
   scope: string,
@@ -95,16 +92,10 @@ async function findOrCreateCluster(
 ): Promise<string> {
   const tokens = titleTokens(title);
 
-  const clustersHoldingThisSource = new Set(
-    candidates.filter((c) => c.sourceId === sourceId).map((c) => c.clusterId)
-  );
-
-  for (const candidate of candidates) {
-    if (candidate.scope !== scope) continue;
-    if (clustersHoldingThisSource.has(candidate.clusterId)) continue;
-    if (jaccardSimilarity(tokens, candidate.tokens) >= SAME_STORY_THRESHOLD) {
-      return candidate.clusterId;
-    }
+  const existing = chooseCluster(candidates, { scope, sourceId, tokens });
+  if (existing) {
+    candidates.push({ scope, sourceId, tokens, clusterId: existing });
+    return existing;
   }
 
   const id = crypto.randomUUID();

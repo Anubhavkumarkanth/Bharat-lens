@@ -18,9 +18,10 @@
     "resummarize": "tsx --env-file=.env.local src/scripts/resummarize.ts",
     "decode-entities": "tsx --env-file=.env.local src/scripts/decode-entities.ts",
     "debug-source": "tsx --env-file=.env.local src/scripts/debug-source.ts",
-    "test": "npm run test:classify && npm run test:availability",
+    "test": "npm run test:classify && npm run test:clustering && npm run test:availability",
     "test:classify": "tsx src/scripts/test-classify.ts",
-    "test:availability": "tsx src/scripts/test-availability.ts"
+    "test:availability": "tsx src/scripts/test-availability.ts",
+    "test:clustering": "tsx src/scripts/test-clustering.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.124.0",

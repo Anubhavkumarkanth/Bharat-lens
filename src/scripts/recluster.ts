@@ -1,12 +1,13 @@
 import { db } from "@/lib/db/client";
 import { articles, storyClusters } from "@/lib/db/schema";
 import { asc, eq, notInArray } from "drizzle-orm";
-import { titleTokens, jaccardSimilarity, SAME_STORY_THRESHOLD } from "@/lib/ranking/similarity";
+import { titleTokens, chooseCluster } from "@/lib/ranking/similarity";
 
 // Rebuilds story clusters for stored articles, using the same rules as ingestion
 // (oldest first, 48h window, one article per outlet). Run after changing clustering.
 const WINDOW_MS = 48 * 60 * 60 * 1000;
 
+// The shared ClusterCandidate plus the discovery time used to prune the 48h window.
 interface Candidate {
   scope: string;
   sourceId: string;
@@ -40,20 +41,12 @@ async function main() {
     candidates = candidates.filter((c) => at - c.discoveredAt <= WINDOW_MS);
 
     const tokens = titleTokens(row.title);
-    const held = new Set(
-      candidates.filter((c) => c.sourceId === row.sourceId).map((c) => c.clusterId)
-    );
 
-    let clusterId: string | null = null;
-    for (const candidate of candidates) {
-      if (candidate.scope !== row.scope) continue;
-      if (held.has(candidate.clusterId)) continue;
-      if (jaccardSimilarity(tokens, candidate.tokens) >= SAME_STORY_THRESHOLD) {
-        clusterId = candidate.clusterId;
-        break;
-      }
-    }
-
+    let clusterId = chooseCluster(candidates, {
+      scope: row.scope,
+      sourceId: row.sourceId,
+      tokens,
+    });
     if (!clusterId) {
       clusterId = crypto.randomUUID();
       createdClusterIds.push(clusterId);

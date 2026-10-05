@@ -46,3 +46,6 @@ __pycache__/
 .pytest_cache/
 .ipynb_checkpoints/
 .venv/
+
+# local Postgres helper — machine-specific paths, not part of the app
+pg.mjs
