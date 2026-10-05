@@ -6,6 +6,13 @@ abroad, things abroad that affect India, and world news. English or Hindi.
 
 No sign-up and no accounts.
 
+**Ingestion · Clustering · Search · REST API · PostgreSQL · Analytics · Data quality**
+
+```
+sources → TypeScript ingestion → PostgreSQL (dedup, clustering, search, analytics)
+        → REST API → React dashboard      (Python for offline corpus analysis)
+```
+
 ![The India feed](docs/screenshots/feed.png)
 
 <details>
@@ -62,6 +69,8 @@ What I wanted:
 - An insights page: who gets stories out first, overlap with the wires, what each
   outlet covers, and which sources have gone quiet
 - Paged feeds, so you can get past the first 40 stories
+- A read-only [REST API](docs/API.md) over the corpus (articles, search, stats,
+  sources, health) with validated params, consistent JSON and proper status codes
 
 Personal stuff is tied to an anonymous cookie instead of an account. Your saves only
 live in one browser, but there's no sign-up and nothing personal is stored.
@@ -155,7 +164,8 @@ A GitHub Action reruns it against production every Monday and commits the result
 | --- | --- |
 | App | Next.js 16 (App Router), TypeScript, Tailwind v4 |
 | Database | Postgres + Drizzle |
-| Ingestion | Cron route at `/api/cron/ingest` |
+| Ingestion | TypeScript pipeline, run by a cron route at `/api/cron/ingest` |
+| API | REST route handlers under `/api/*` — see [docs/API.md](docs/API.md) |
 | AI (optional) | Gemini or Anthropic, behind one interface |
 | Hosting | Vercel |
 | Analysis | SQL views, Python (pandas, SciPy, matplotlib), Jupyter |

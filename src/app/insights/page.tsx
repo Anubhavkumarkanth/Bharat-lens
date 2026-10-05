@@ -6,6 +6,7 @@ import { requestNow } from "@/lib/clock";
 import { INSIGHT_WINDOWS, MIN_SAMPLE, type InsightWindow } from "@/config/insights";
 import { AnalyticsNotInstalledError, getInsights, type Insights } from "@/lib/insights";
 import { isDatabaseUnreachable } from "@/lib/db/availability";
+import { LiveCorpusStats } from "@/components/live-corpus-stats";
 import {
   count,
   DataTable,
@@ -64,6 +65,16 @@ export default async function InsightsPage(props: PageProps<"/insights">) {
         </div>
         <WindowPicker active={windowDays} lang={lang} />
       </header>
+
+      {/* Live from GET /api/stats — the one browser-side API consumer, and the
+          live data-quality check. All-time, so it differs from the window-scoped
+          overview below. */}
+      <section className="space-y-2">
+        <h2 className="text-xs uppercase tracking-wider text-muted">
+          Live corpus &middot; from the REST API
+        </h2>
+        <LiveCorpusStats />
+      </section>
 
       {insights.overview.articles === 0 ? (
         <p data-insights-state="empty" className="text-center py-24 text-muted">
