@@ -96,13 +96,14 @@ the key in `GEMINI_API_KEY`.
 
 ### Deploy it for free
 
-Everything here fits in free tiers: Supabase for Postgres, Vercel Hobby for the app,
+Everything here fits in free tiers: Neon for Postgres, Vercel Hobby for the app,
 GitHub Actions for the weekly analysis.
 
-1. **Database.** Create a free project on [Supabase](https://supabase.com). Copy the
-   connection string from Connect > "Transaction pooler" (port 6543). Put it in
-   `.env.local` as `DATABASE_URL` and run `npm run db:push`, `npm run db:setup` and
-   `npm run ingest` once from your machine.
+1. **Database.** Create a free project on [Neon](https://neon.tech) (it wakes on
+   connection instead of pausing, so the project stays put). Copy the pooled
+   connection string from the dashboard. Put it in `.env.local` as `DATABASE_URL`
+   and run `npm run db:push`, `npm run db:setup` and `npm run ingest` once from your
+   machine. Any Postgres works — it also runs on a local cluster for development.
 2. **App.** On [Vercel](https://vercel.com), import the GitHub repo (Hobby plan, the
    Next.js defaults are fine). Under Environment Variables add `DATABASE_URL`, a random
    `CRON_SECRET`, and optionally `GEMINI_API_KEY`. Deploy.
