@@ -103,7 +103,7 @@ npm run dev              # dev server
 npm run build            # production build
 npm run lint             # eslint
 npx tsc --noEmit         # typecheck
-npm run db:push          # apply schema to Postgres (see rule 14 first)
+npm run db:push          # apply schema to Postgres (see rule 15 first)
 npm run db:setup         # apply drizzle/manual/*.sql (search index, analytics views)
 npm run ingest           # run the ingestion pipeline locally
 
